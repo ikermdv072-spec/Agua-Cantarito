@@ -7,6 +7,18 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div id="lockScreen">
+    <div class="lock-box">
+      <p class="eyebrow">Empresa de agua</p>
+      <h2>Sistema de bidones</h2>
+      <label>Contraseña
+        <input id="lockInput" type="password" placeholder="Ingresá la contraseña" autocomplete="current-password">
+      </label>
+      <div id="lockError" class="notice bad" style="display:none">Contraseña incorrecta.</div>
+      <button id="lockBtn">Ingresar</button>
+    </div>
+  </div>
+  <div id="appContent" style="display:none">
   <header class="topbar">
     <div>
       <p class="eyebrow">Empresa de agua</p>
@@ -417,6 +429,7 @@ with check (true);</code></pre>
       <small></small>
     </article>
   </template>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js"></script>

@@ -1231,5 +1231,39 @@ document.getElementById("resetBtn").addEventListener("click", () => {
   renderAll();
 });
 
-renderAll();
-if (hasSupabaseConfig()) loadFromSupabase();
+const PASSWORD = "Momoqui68";
+
+function initLock() {
+  const lock = document.getElementById("lockScreen");
+  const app = document.getElementById("appContent");
+  const btn = document.getElementById("lockBtn");
+  const input = document.getElementById("lockInput");
+  const error = document.getElementById("lockError");
+
+  if (sessionStorage.getItem("auth") === "ok") {
+    lock.style.display = "none";
+    app.style.display = "block";
+    renderAll();
+    if (hasSupabaseConfig()) loadFromSupabase();
+    return;
+  }
+
+  function tryUnlock() {
+    if (input.value === PASSWORD) {
+      sessionStorage.setItem("auth", "ok");
+      lock.style.display = "none";
+      app.style.display = "block";
+      renderAll();
+      if (hasSupabaseConfig()) loadFromSupabase();
+    } else {
+      error.style.display = "block";
+      input.value = "";
+      input.focus();
+    }
+  }
+
+  btn.addEventListener("click", tryUnlock);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
+}
+
+initLock();
