@@ -1,5 +1,7 @@
 const STORAGE_KEY = "sistema-agua-bidones-v1";
 const SUPABASE_CONFIG_KEY = "sistema-agua-bidones-supabase";
+const SUPABASE_URL = "https://ltmcdkhvbybdbfttznnj.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0bWNka2h2YnliZGJmdHR6bm5qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4MTM0ODMsImV4cCI6MjA5NjM4OTQ4M30.g63r5e6NQvd8wOrKWXsud-Yq9OITnIVYC_3ZCkTJEYk";
 
 const defaults = {
   config: {
@@ -92,28 +94,18 @@ function saveState(options = {}) {
 }
 
 function loadSupabaseConfig() {
+  const base = {
+    url: SUPABASE_URL,
+    anonKey: SUPABASE_ANON_KEY,
+    table: "water_app_state",
+    rowId: "cantaritooo"
+  };
   const saved = localStorage.getItem(SUPABASE_CONFIG_KEY);
-  if (!saved) {
-    return {
-      url: "",
-      anonKey: "",
-      table: "water_app_state",
-      rowId: "cantaritooo"
-    };
-  }
+  if (!saved) return base;
   try {
-    return {
-      table: "water_app_state",
-      rowId: "cantaritooo",
-      ...JSON.parse(saved)
-    };
+    return { ...base, ...JSON.parse(saved), url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY };
   } catch {
-    return {
-      url: "",
-      anonKey: "",
-      table: "water_app_state",
-      rowId: "cantaritooo"
-    };
+    return base;
   }
 }
 
