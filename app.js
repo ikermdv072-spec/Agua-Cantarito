@@ -1,5 +1,6 @@
 const STORAGE_KEY = "sistema-agua-bidones-v1";
 const SUPABASE_CONFIG_KEY = "sistema-agua-bidones-supabase";
+const PROTECTED_PASSWORD = "1703215012";
 const SUPABASE_URL = "https://ltmcdkhvbybdbfttznnj.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0bWNka2h2YnliZGJmdHR6bm5qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4MTM0ODMsImV4cCI6MjA5NjM4OTQ4M30.g63r5e6NQvd8wOrKWXsud-Yq9OITnIVYC_3ZCkTJEYk";
 
@@ -9,6 +10,8 @@ const defaults = {
     initialCaps: 5500,
     initialLabels: 5700,
     initialSeals: 11000,
+    initialGasoline: 0,
+    initialDiesel: 0,
     priceDriver: 6,
     priceDirect7: 7,
     priceDirect8: 8,
@@ -69,6 +72,8 @@ function normalizeState(data) {
   if (data.config.productionEmployee2Commission == null) data.config.productionEmployee2Commission = 0.15;
   if (data.config.gasolineLiterCost == null) data.config.gasolineLiterCost = 6.96;
   if (data.config.dieselLiterCost == null) data.config.dieselLiterCost = 9.80;
+  if (data.config.initialGasoline == null) data.config.initialGasoline = 0;
+  if (data.config.initialDiesel == null) data.config.initialDiesel = 0;
   if (data.config.monthlyDepreciation == null) data.config.monthlyDepreciation = 1000;
   data.config.commission = Number(data.config.productionEmployee1Commission || 0) + Number(data.config.productionEmployee2Commission || 0);
   data.daily = data.daily || [];
@@ -235,6 +240,20 @@ function dateInRange(date, from, to) {
   if (from && date < from) return false;
   if (to && date > to) return false;
   return true;
+}
+
+function isOlderThan4Days(dateIso) {
+  if (!dateIso) return false;
+  const diff = (new Date(todayIso() + "T12:00:00") - new Date(dateIso + "T12:00:00")) / 86400000;
+  return diff >= 4;
+}
+
+function confirmProtected() {
+  const pwd = prompt("Este registro tiene más de 4 días. Ingresá la contraseña para poder modificarlo:");
+  if (pwd === null) return false;
+  if (pwd === PROTECTED_PASSWORD) return true;
+  alert("Contraseña incorrecta. No se puede modificar el registro.");
+  return false;
 }
 
 function dashboardRange() {
@@ -434,8 +453,8 @@ function calculateAll() {
     caps: state.config.initialCaps + purchases.caps - used.caps,
     labels: state.config.initialLabels + purchases.labels - used.labels,
     seals: state.config.initialSeals + purchases.seals - used.seals,
-    gasoline: purchases.gasoline - used.gasLiters,
-    diesel: purchases.diesel - used.dieselLiters,
+    gasoline: Number(state.config.initialGasoline || 0) + purchases.gasoline - used.gasLiters,
+    diesel: Number(state.config.initialDiesel || 0) + purchases.diesel - used.dieselLiters,
     ready: dailyTotals.reduce((sum, row) => sum + row.leftover, 0)
   };
 
@@ -1067,7 +1086,7 @@ document.getElementById("debtInstallmentForm").addEventListener("submit", (event
 
 document.getElementById("configForm").addEventListener("submit", (event) => {
   event.preventDefault();
-  const numeric = ["initialBottles", "initialCaps", "initialLabels", "initialSeals", "priceDriver", "priceDirect7", "priceDirect8", "costCap", "costLabel", "costSeal", "gasolineLiterCost", "dieselLiterCost", "productionEmployee1Commission", "productionEmployee2Commission", "monthlyDepreciation", "lostCharge", "lowStock"];
+  const numeric = ["initialBottles", "initialCaps", "initialLabels", "initialSeals", "initialGasoline", "initialDiesel", "priceDriver", "priceDirect7", "priceDirect8", "costCap", "costLabel", "costSeal", "gasolineLiterCost", "dieselLiterCost", "productionEmployee1Commission", "productionEmployee2Commission", "monthlyDepreciation", "lostCharge", "lowStock"];
   numeric.forEach((key) => {
     state.config[key] = Number(document.getElementById(key).value || 0);
   });
@@ -1112,14 +1131,21 @@ document.getElementById("clearSupabaseBtn").addEventListener("click", () => {
 
 document.addEventListener("click", (event) => {
   const target = event.target;
-  if (target.dataset.deleteDay && confirm("¿Borrar este registro diario?")) {
+
+  if (target.dataset.deleteDay) {
+    const day = state.daily.find((item) => item.id === target.dataset.deleteDay);
+    if (!day) return;
+    if (isOlderThan4Days(day.date) && !confirmProtected()) return;
+    if (!confirm("¿Borrar este registro diario?")) return;
     state.daily = state.daily.filter((item) => item.id !== target.dataset.deleteDay);
     saveState();
     renderAll();
   }
+
   if (target.dataset.editDay) {
     const day = state.daily.find((item) => item.id === target.dataset.editDay);
     if (!day) return;
+    if (isOlderThan4Days(day.date) && !confirmProtected()) return;
     document.getElementById("dailyId").value = day.id;
     ["date", "produced", "capsDelivered", "labelsDelivered", "sealsDelivered", "capsUsed", "labelsUsed", "sealsUsed", "direct7", "direct8", "physicalBottlesSold", "physicalBottleUnitPrice", "cash", "qr", "broken", "lost", "gasLiters", "gasCost", "dieselLiters", "dieselCost", "notes"].forEach((id) => {
       document.getElementById(id).value = day[id] ?? "";
@@ -1137,28 +1163,53 @@ document.addEventListener("click", (event) => {
     });
     document.querySelector('[data-view="registro"]').click();
   }
-  if (target.dataset.deletePurchase && confirm("¿Borrar esta compra?")) {
+
+  if (target.dataset.deletePurchase) {
+    const purchase = state.purchases.find((item) => item.id === target.dataset.deletePurchase);
+    if (!purchase) return;
+    if (isOlderThan4Days(purchase.date) && !confirmProtected()) return;
+    if (!confirm("¿Borrar esta compra?")) return;
     state.purchases = state.purchases.filter((item) => item.id !== target.dataset.deletePurchase);
     saveState();
     renderAll();
   }
-  if (target.dataset.deleteExpense && confirm("¿Borrar este gasto?")) {
+
+  if (target.dataset.deleteExpense) {
+    const expense = state.expenses.find((item) => item.id === target.dataset.deleteExpense);
+    if (!expense) return;
+    if (isOlderThan4Days(expense.date) && !confirmProtected()) return;
+    if (!confirm("¿Borrar este gasto?")) return;
     state.expenses = state.expenses.filter((item) => item.id !== target.dataset.deleteExpense);
     saveState();
     renderAll();
   }
-  if (target.dataset.deleteDebtPayment && confirm("¿Borrar este pago de deuda?")) {
+
+  if (target.dataset.deleteDebtPayment) {
+    const payment = (state.debtPayments || []).find((item) => item.id === target.dataset.deleteDebtPayment);
+    if (!payment) return;
+    if (isOlderThan4Days(payment.date) && !confirmProtected()) return;
+    if (!confirm("¿Borrar este pago de deuda?")) return;
     state.debtPayments = (state.debtPayments || []).filter((item) => item.id !== target.dataset.deleteDebtPayment);
     saveState();
     renderAll();
   }
-  if (target.dataset.deleteLiabilityDebt && confirm("¿Borrar esta deuda y sus pagos?")) {
+
+  if (target.dataset.deleteLiabilityDebt) {
+    const debt = (state.liabilityDebts || []).find((item) => item.id === target.dataset.deleteLiabilityDebt);
+    if (!debt) return;
+    if (isOlderThan4Days(debt.date) && !confirmProtected()) return;
+    if (!confirm("¿Borrar esta deuda y sus pagos?")) return;
     state.liabilityDebts = (state.liabilityDebts || []).filter((item) => item.id !== target.dataset.deleteLiabilityDebt);
     state.liabilityPayments = (state.liabilityPayments || []).filter((item) => item.debtId !== target.dataset.deleteLiabilityDebt);
     saveState();
     renderAll();
   }
-  if (target.dataset.deleteLiabilityPayment && confirm("¿Borrar este pago de deuda?")) {
+
+  if (target.dataset.deleteLiabilityPayment) {
+    const payment = (state.liabilityPayments || []).find((item) => item.id === target.dataset.deleteLiabilityPayment);
+    if (!payment) return;
+    if (isOlderThan4Days(payment.date) && !confirmProtected()) return;
+    if (!confirm("¿Borrar este pago de deuda?")) return;
     state.liabilityPayments = (state.liabilityPayments || []).filter((item) => item.id !== target.dataset.deleteLiabilityPayment);
     saveState();
     renderAll();
