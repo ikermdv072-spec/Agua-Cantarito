@@ -37,6 +37,7 @@ const defaults = {
 };
 
 let state = loadState();
+let salesChartInstance = null;
 let supabaseConfig = loadSupabaseConfig();
 let supabaseClient = null;
 let cloudSaveTimer = null;
@@ -875,6 +876,108 @@ function loadConfigForm() {
   });
 }
 
+function renderSalesChart() {
+  const canvas = document.getElementById("salesChart");
+  if (!canvas || typeof Chart === "undefined") return;
+  const today = todayIso();
+  const days = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today + "T12:00:00");
+    d.setDate(d.getDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const labels = days.map(d => d.slice(5).replace("-", "/"));
+  const data = days.map(d => {
+    const day = state.daily.find(r => r.date === d);
+    return day ? totalsForDay(day).sold : 0;
+  });
+  if (salesChartInstance) salesChartInstance.destroy();
+  salesChartInstance = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: "Bidones vendidos",
+        data,
+        backgroundColor: "#5bbfd4",
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 45 } },
+        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+      }
+    }
+  });
+}
+
+function renderMonthlyComparison() {
+  const el = document.getElementById("monthlyComparison");
+  if (!el) return;
+  const thisMonth = todayIso().slice(0, 7);
+  const prevDate = new Date(todayIso() + "T12:00:00");
+  prevDate.setMonth(prevDate.getMonth() - 1);
+  const prevMonth = prevDate.toISOString().slice(0, 7);
+  const thisDays = state.daily.filter(d => d.date.startsWith(thisMonth));
+  const prevDays = state.daily.filter(d => d.date.startsWith(prevMonth));
+  const thisExp = state.expenses.filter(e => e.date.startsWith(thisMonth));
+  const prevExp = state.expenses.filter(e => e.date.startsWith(prevMonth));
+  const t = aggregateActivity(thisDays, thisExp);
+  const p = aggregateActivity(prevDays, prevExp);
+
+  function pct(curr, prev) {
+    if (prev === 0) return curr === 0 ? "sin datos" : "nuevo";
+    const d = ((curr - prev) / prev * 100).toFixed(1);
+    return (d >= 0 ? "+" : "") + d + "%";
+  }
+  function cls(curr, prev, invert) {
+    if (curr === prev) return "";
+    return (invert ? curr < prev : curr > prev) ? "ok" : "low";
+  }
+
+  const rows = [
+    ["Bidones vendidos", number(t.sold), number(p.sold), pct(t.sold, p.sold), cls(t.sold, p.sold, false)],
+    ["Ingresos", money(t.income), money(p.income), pct(t.income, p.income), cls(t.income, p.income, false)],
+    ["Producidos", number(t.used.produced), number(p.used.produced), pct(t.used.produced, p.used.produced), cls(t.used.produced, p.used.produced, false)],
+    ["Gastos", money(t.expenses), money(p.expenses), pct(t.expenses, p.expenses), cls(t.expenses, p.expenses, true)],
+    ["Ganancia neta", money(t.net), money(p.net), pct(t.net, p.net), cls(t.net, p.net, false)]
+  ];
+
+  el.innerHTML = rows.map(([label, curr, prev, change, c]) => `
+    <div class="stock-row">
+      <span>${label}<br><small>Mes anterior: ${prev}</small></span>
+      <strong class="${c}">${curr} <small>(${change})</small></strong>
+    </div>
+  `).join("");
+}
+
+function renderDriverRanking() {
+  const el = document.getElementById("driverRanking");
+  if (!el) return;
+  const thisMonth = todayIso().slice(0, 7);
+  const thisDays = state.daily.filter(d => d.date.startsWith(thisMonth));
+  const ranking = state.config.drivers.map(driver => {
+    const sold = thisDays.reduce((sum, day) => sum + Number((day.drivers || {})[driver] || 0), 0);
+    return { driver, sold };
+  }).sort((a, b) => b.sold - a.sold);
+
+  if (!ranking.length || ranking[0].sold === 0) {
+    el.innerHTML = "<p>Sin ventas registradas este mes.</p>";
+    return;
+  }
+
+  const pos = ["1er lugar", "2do lugar", "3er lugar"];
+  el.innerHTML = ranking.map((row, i) => `
+    <div class="stock-row ${i === 0 ? "top-driver" : ""}">
+      <span>${pos[i] || `${i + 1}to`} &nbsp; <strong>${row.driver}</strong>${i === 0 ? " — Mejor chofer del mes" : ""}</span>
+      <strong class="${i === 0 ? "ok" : ""}">${number(row.sold)} bidones</strong>
+    </div>
+  `).join("");
+}
+
 function renderAll() {
   renderDriverInputs();
   renderDriverSelects();
@@ -884,6 +987,9 @@ function renderAll() {
   renderDriverDebts();
   renderProductionSupplySummary();
   renderCostPerBottleSummary();
+  renderSalesChart();
+  renderMonthlyComparison();
+  renderDriverRanking();
   renderDailyRows();
   renderPurchases();
   renderExpenses();

@@ -61,6 +61,20 @@
       <div class="kpi-grid" id="kpis"></div>
       <div class="grid two">
         <section class="panel">
+          <h3>Ventas diarias — ultimos 30 dias</h3>
+          <canvas id="salesChart"></canvas>
+        </section>
+        <section class="panel">
+          <h3>Comparacion mensual</h3>
+          <div id="monthlyComparison" class="stock-list"></div>
+        </section>
+      </div>
+      <section class="panel">
+        <h3>Ranking de choferes — mes actual</h3>
+        <div id="driverRanking" class="stock-list"></div>
+      </section>
+      <div class="grid two">
+        <section class="panel">
           <h3>Stock actual</h3>
           <div id="stockList" class="stock-list"></div>
         </section>
@@ -436,6 +450,7 @@ with check (true);</code></pre>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

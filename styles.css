@@ -315,6 +315,17 @@ td button {
 .ok { color: var(--good); font-weight: 700; }
 .warn { color: var(--warn); font-weight: 700; }
 
+.stock-row.top-driver {
+  border-left-color: var(--brand);
+  background: var(--soft);
+}
+
+.stock-row small {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
 .muted {
   color: var(--muted);
 }
@@ -383,9 +394,39 @@ td button {
 }
 
 @media print {
-  .top-actions, .tabs, form, .ghost, .danger, td button { display: none !important; }
-  body { background: #fff; }
-  main { max-width: none; padding: 0; }
-  .view { display: block; page-break-after: always; }
-  .panel, .kpi { box-shadow: none; }
+  #lockScreen, .top-actions, .tabs, form, .ghost, .danger, td button, canvas { display: none !important; }
+  body { background: #fff; font-size: 11px; color: #000; }
+  main { max-width: none; padding: 8px; }
+  .topbar {
+    background: #fff;
+    border-bottom: 2px solid #1b3a6b;
+    padding: 8px 0;
+    break-after: avoid;
+  }
+  .topbar-logo { height: 44px; }
+  .view { display: block !important; }
+  .view + .view { break-before: page; }
+  .section-title, h2, h3 { break-after: avoid; }
+  .panel {
+    box-shadow: none;
+    border: 1px solid #ccc;
+    break-inside: avoid;
+    margin-bottom: 10px;
+    padding: 10px;
+  }
+  .kpi {
+    box-shadow: none;
+    border: 1px solid #ccc;
+    border-top: 2px solid #1b3a6b;
+    break-inside: avoid;
+    padding: 8px;
+  }
+  .kpi strong { font-size: 16px; }
+  .kpi-grid { grid-template-columns: repeat(4, 1fr); }
+  .kpi-grid.small { grid-template-columns: repeat(3, 1fr); }
+  .grid.two { grid-template-columns: repeat(2, 1fr); }
+  table { min-width: 0; width: 100%; break-inside: avoid; }
+  th, td { padding: 5px 7px; font-size: 10px; }
+  .stock-row, .mini-row { padding: 6px 10px; break-inside: avoid; }
+  .table-wrap { overflow: visible; }
 }
