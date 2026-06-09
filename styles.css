@@ -46,6 +46,70 @@
   --good: #15803d;
 }
 
+body.dark {
+  --bg: #0d1b2e;
+  --panel: #162338;
+  --text: #ddeef8;
+  --muted: #7aaac4;
+  --line: #243d58;
+  --brand: #5bbfd4;
+  --brand-dark: #4aafc4;
+  --soft: #1a3050;
+  --accent: #5bbfd4;
+}
+
+body.dark .topbar {
+  background: linear-gradient(135deg, #0f2035 0%, #162338 50%, #0f2035 100%);
+}
+
+body.dark .tabs {
+  background: linear-gradient(to right, #111f33, #162338);
+}
+
+body.dark .tab.active {
+  background: #1a3050;
+}
+
+body.dark th {
+  background: #1a3050;
+}
+
+body.dark .stock-row,
+body.dark .mini-row {
+  background: #111f33;
+}
+
+body.dark input,
+body.dark select {
+  background: #1a3050;
+  color: var(--text);
+  border-color: var(--line);
+}
+
+body.dark .ghost {
+  background: #1a3050;
+  color: var(--text);
+  border-color: var(--line);
+}
+
+body.dark .ghost:hover {
+  background: #243d58;
+}
+
+body.dark .notice {
+  background: #111f33;
+}
+
+body.dark .lock-box {
+  background: #162338;
+  border-color: #243d58;
+  color: var(--text);
+}
+
+body.dark #lockScreen {
+  background: linear-gradient(135deg, #0a1525 0%, #0f2035 40%, #162338 60%, #0a1525 100%);
+}
+
 * { box-sizing: border-box; }
 
 body {

@@ -1423,4 +1423,25 @@ function initLock() {
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
 }
 
+function initDarkMode() {
+  const btn = document.getElementById("darkModeBtn");
+  const isDark = localStorage.getItem("darkMode") === "1";
+  if (isDark) {
+    document.body.classList.add("dark");
+    btn.textContent = "Modo claro";
+  }
+  btn.addEventListener("click", () => {
+    const active = document.body.classList.toggle("dark");
+    localStorage.setItem("darkMode", active ? "1" : "0");
+    btn.textContent = active ? "Modo claro" : "Modo oscuro";
+    if (salesChartInstance) {
+      salesChartInstance.options.scales.x.ticks.color = active ? "#7aaac4" : "#666";
+      salesChartInstance.options.scales.y.ticks.color = active ? "#7aaac4" : "#666";
+      salesChartInstance.data.datasets[0].backgroundColor = "#5bbfd4";
+      salesChartInstance.update();
+    }
+  });
+}
+
+initDarkMode();
 initLock();
