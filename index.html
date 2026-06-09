@@ -74,6 +74,10 @@
         <h3>Ranking de choferes — mes actual</h3>
         <div id="driverRanking" class="stock-list"></div>
       </section>
+      <section class="panel">
+        <h3>Bonificación choferes — cada 100 bidones = 2 gratis</h3>
+        <div id="driverBonification" class="stock-list"></div>
+      </section>
       <div class="grid two">
         <section class="panel">
           <h3>Stock actual</h3>
@@ -113,8 +117,11 @@
         <label>Tapas usadas <input id="capsUsed" type="number" min="0" value="0"></label>
         <label>Etiquetas usadas <input id="labelsUsed" type="number" min="0" value="0"></label>
         <label>Sellos usados <input id="sealsUsed" type="number" min="0" value="0"></label>
+        <label>Venta directa 6 Bs <input id="direct6" type="number" min="0" value="0"></label>
         <label>Venta directa 7 Bs <input id="direct7" type="number" min="0" value="0"></label>
         <label>Venta directa 8 Bs <input id="direct8" type="number" min="0" value="0"></label>
+        <label>Venta directa 10 Bs <input id="direct10" type="number" min="0" value="0"></label>
+        <label>Gasolina vendida (litros) <input id="gasolineSoldLiters" type="number" min="0" step="0.01" value="0"></label>
         <label>Bidones físicos vendidos <input id="physicalBottlesSold" type="number" min="0" value="0"></label>
         <label>Precio unitario bidón físico <input id="physicalBottleUnitPrice" type="number" min="0" step="0.01" value="0"></label>
         <label>Efectivo recibido <input id="cash" type="number" min="0" step="0.01" value="0"></label>
@@ -140,7 +147,7 @@
           <table>
             <thead>
               <tr>
-                <th>Fecha</th><th>Día</th><th>Producidos</th><th>Vendidos agua</th><th>Bidones físicos</th><th>Entregado producción</th><th>Ingresos</th><th>Sobrante</th><th>Acción</th>
+                <th>Fecha</th><th>Día</th><th>Producidos</th><th>Vendidos agua</th><th>Bidones físicos</th><th>Entregado producción</th><th>Ingresos</th><th>Efectivo</th><th>QR</th><th>Sobrante</th><th>Acción</th>
               </tr>
             </thead>
             <tbody id="dailyRows"></tbody>
@@ -389,9 +396,14 @@
         <label>Sellos iniciales <input id="initialSeals" type="number" min="0"></label>
         <label>Gasolina inicial (litros) <input id="initialGasoline" type="number" min="0" step="0.01" value="0"></label>
         <label>Diésel inicial (litros) <input id="initialDiesel" type="number" min="0" step="0.01" value="0"></label>
-        <label>Precio repartidor <input id="priceDriver" type="number" min="0" step="0.01"></label>
-        <label>Venta directa 7 <input id="priceDirect7" type="number" min="0" step="0.01"></label>
-        <label>Venta directa 8 <input id="priceDirect8" type="number" min="0" step="0.01"></label>
+        <label>Precio repartidor (base) <input id="priceDriver" type="number" min="0" step="0.01"></label>
+        <label>Precio repartidor 6 Bs <input id="priceDriver6" type="number" min="0" step="0.01"></label>
+        <label>Precio repartidor 7 Bs <input id="priceDriver7" type="number" min="0" step="0.01"></label>
+        <label>Venta directa 6 Bs <input id="priceDirect6" type="number" min="0" step="0.01"></label>
+        <label>Venta directa 7 Bs <input id="priceDirect7" type="number" min="0" step="0.01"></label>
+        <label>Venta directa 8 Bs <input id="priceDirect8" type="number" min="0" step="0.01"></label>
+        <label>Venta directa 10 Bs <input id="priceDirect10" type="number" min="0" step="0.01"></label>
+        <label>Precio venta gasolina (Bs/L) <input id="gasolineSalePrice" type="number" min="0" step="0.01"></label>
         <label>Costo tapa <input id="costCap" type="number" min="0" step="0.01"></label>
         <label>Costo etiqueta <input id="costLabel" type="number" min="0" step="0.01"></label>
         <label>Costo sello <input id="costSeal" type="number" min="0" step="0.01"></label>

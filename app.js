@@ -13,8 +13,13 @@ const defaults = {
     initialGasoline: 0,
     initialDiesel: 0,
     priceDriver: 6,
+    priceDriver6: 6,
+    priceDriver7: 7,
+    priceDirect6: 6,
     priceDirect7: 7,
     priceDirect8: 8,
+    priceDirect10: 10,
+    gasolineSalePrice: 7,
     costCap: 0.37,
     costLabel: 0.40,
     costSeal: 0.15,
@@ -26,7 +31,7 @@ const defaults = {
     monthlyDepreciation: 1000,
     lostCharge: 30,
     lowStock: 500,
-    drivers: ["Etenier", "Sebastian", "Freddy", "Chofer random"]
+    drivers: ["Etenier", "Sebastian", "Freddy", "Chofer random", "Chofer 4", "Chofer 5", "Chofer 6"]
   },
   daily: [],
   purchases: [],
@@ -66,9 +71,7 @@ function renameDriverKey(map, oldName, newName) {
 }
 
 function normalizeState(data) {
-  data.config.drivers = (data.config.drivers || defaults.config.drivers).map((driver) =>
-    driver === "Chofer 4" ? "Chofer random" : driver
-  );
+  data.config.drivers = data.config.drivers || defaults.config.drivers;
   if (data.config.productionEmployee1Commission == null) data.config.productionEmployee1Commission = 0.15;
   if (data.config.productionEmployee2Commission == null) data.config.productionEmployee2Commission = 0.15;
   if (data.config.gasolineLiterCost == null) data.config.gasolineLiterCost = 6.96;
@@ -76,19 +79,14 @@ function normalizeState(data) {
   if (data.config.initialGasoline == null) data.config.initialGasoline = 0;
   if (data.config.initialDiesel == null) data.config.initialDiesel = 0;
   if (data.config.monthlyDepreciation == null) data.config.monthlyDepreciation = 1000;
+  if (data.config.priceDriver6 == null) data.config.priceDriver6 = 6;
+  if (data.config.priceDriver7 == null) data.config.priceDriver7 = 7;
+  if (data.config.priceDirect6 == null) data.config.priceDirect6 = 6;
+  if (data.config.priceDirect10 == null) data.config.priceDirect10 = 10;
+  if (data.config.gasolineSalePrice == null) data.config.gasolineSalePrice = 7;
   data.config.commission = Number(data.config.productionEmployee1Commission || 0) + Number(data.config.productionEmployee2Commission || 0);
   data.daily = data.daily || [];
-  data.daily.forEach((day) => {
-    renameDriverKey(day.drivers, "Chofer 4", "Chofer random");
-    renameDriverKey(day.gasByDriver, "Chofer 4", "Chofer random");
-    renameDriverKey(day.dieselByDriver, "Chofer 4", "Chofer random");
-    if (day.brokenDriver === "Chofer 4") day.brokenDriver = "Chofer random";
-    if (day.lostDriver === "Chofer 4") day.lostDriver = "Chofer random";
-  });
   data.debtPayments = data.debtPayments || [];
-  data.debtPayments.forEach((payment) => {
-    if (payment.driver === "Chofer 4") payment.driver = "Chofer random";
-  });
   data.liabilityDebts = data.liabilityDebts || [];
   data.liabilityPayments = data.liabilityPayments || [];
   return data;
@@ -275,16 +273,34 @@ function dashboardExpenses() {
 }
 
 function totalsForDay(day) {
-  const driverQty = Object.values(day.drivers || {}).reduce((sum, val) => sum + Number(val || 0), 0);
+  const hasNewDriverData = day.drivers6 || day.drivers7;
+  const driverQty6 = Object.values(day.drivers6 || {}).reduce((sum, val) => sum + Number(val || 0), 0);
+  const driverQty7 = Object.values(day.drivers7 || {}).reduce((sum, val) => sum + Number(val || 0), 0);
+  const legacyDriverQty = hasNewDriverData ? 0 : Object.values(day.drivers || {}).reduce((sum, val) => sum + Number(val || 0), 0);
+  const driverQty = driverQty6 + driverQty7 + legacyDriverQty;
+
+  const direct6 = Number(day.direct6 || 0);
   const direct7 = Number(day.direct7 || 0);
   const direct8 = Number(day.direct8 || 0);
+  const direct10 = Number(day.direct10 || 0);
   const physicalBottlesSold = Number(day.physicalBottlesSold || 0);
   const physicalBottleUnitPrice = Number(day.physicalBottleUnitPrice || 0);
-  const sold = driverQty + direct7 + direct8;
-  const driverIncome = driverQty * state.config.priceDriver;
-  const directIncome = direct7 * state.config.priceDirect7 + direct8 * state.config.priceDirect8;
+  const gasolineSoldLiters = Number(day.gasolineSoldLiters || 0);
+
+  const sold = driverQty + direct6 + direct7 + direct8 + direct10;
+
+  const driverIncome6 = driverQty6 * Number(state.config.priceDriver6 || 6);
+  const driverIncome7 = driverQty7 * Number(state.config.priceDriver7 || 7);
+  const legacyDriverIncome = legacyDriverQty * Number(state.config.priceDriver || 6);
+  const driverIncome = driverIncome6 + driverIncome7 + legacyDriverIncome;
+  const directIncome = direct6 * Number(state.config.priceDirect6 || 6) +
+                       direct7 * state.config.priceDirect7 +
+                       direct8 * state.config.priceDirect8 +
+                       direct10 * Number(state.config.priceDirect10 || 10);
   const physicalBottleIncome = physicalBottlesSold * physicalBottleUnitPrice;
-  const income = driverIncome + directIncome + physicalBottleIncome;
+  const gasolineSaleIncome = gasolineSoldLiters * Number(state.config.gasolineSalePrice || 7);
+  const income = driverIncome + directIncome + physicalBottleIncome + gasolineSaleIncome;
+
   const supplyCost =
     Number(day.capsUsed || 0) * state.config.costCap +
     Number(day.labelsUsed || 0) * state.config.costLabel +
@@ -296,7 +312,13 @@ function totalsForDay(day) {
   const variableCost = supplyCost + productionCommissionCost + fuelCost;
   const lossCharge = (Number(day.broken || 0) + Number(day.lost || 0)) * state.config.lostCharge;
   const leftover = Number(day.produced || 0) - sold;
-  return { driverQty, direct7, direct8, physicalBottlesSold, physicalBottleUnitPrice, sold, income, physicalBottleIncome, supplyCost, productionEmployee1CommissionCost, productionEmployee2CommissionCost, productionCommissionCost, fuelCost, variableCost, lossCharge, leftover };
+
+  const cashByDriverTotal = Object.values(day.cashByDriver || {}).reduce((sum, val) => sum + Number(val || 0), 0);
+  const qrByDriverTotal = Object.values(day.qrByDriver || {}).reduce((sum, val) => sum + Number(val || 0), 0);
+  const totalCash = Number(day.cash || 0) + cashByDriverTotal;
+  const totalQr = Number(day.qr || 0) + qrByDriverTotal;
+
+  return { driverQty, direct6, direct7, direct8, direct10, physicalBottlesSold, physicalBottleUnitPrice, gasolineSoldLiters, gasolineSaleIncome, sold, income, physicalBottleIncome, supplyCost, productionEmployee1CommissionCost, productionEmployee2CommissionCost, productionCommissionCost, fuelCost, variableCost, lossCharge, leftover, totalCash, totalQr };
 }
 
 function gasForDay(day) {
@@ -344,8 +366,9 @@ function aggregateActivity(days, expenses) {
     acc.produced += Number(day.produced || 0);
     acc.gasLiters += gasForDay(day);
     acc.dieselLiters += dieselForDay(day);
+    acc.gasolineSold += Number(day.gasolineSoldLiters || 0);
     return acc;
-  }, { capsDelivered: 0, labelsDelivered: 0, sealsDelivered: 0, caps: 0, labels: 0, seals: 0, broken: 0, lost: 0, physicalBottlesSold: 0, produced: 0, gasLiters: 0, dieselLiters: 0 });
+  }, { capsDelivered: 0, labelsDelivered: 0, sealsDelivered: 0, caps: 0, labels: 0, seals: 0, broken: 0, lost: 0, physicalBottlesSold: 0, produced: 0, gasLiters: 0, dieselLiters: 0, gasolineSold: 0 });
 
   const sold = dailyTotals.reduce((sum, row) => sum + row.sold, 0);
   const income = dailyTotals.reduce((sum, row) => sum + row.income, 0);
@@ -356,6 +379,8 @@ function aggregateActivity(days, expenses) {
   const fuelCost = dailyTotals.reduce((sum, row) => sum + row.fuelCost, 0);
   const variableCost = dailyTotals.reduce((sum, row) => sum + row.variableCost, 0);
   const lossCharge = dailyTotals.reduce((sum, row) => sum + row.lossCharge, 0);
+  const totalCash = dailyTotals.reduce((sum, row) => sum + row.totalCash, 0);
+  const totalQr = dailyTotals.reduce((sum, row) => sum + row.totalQr, 0);
   const automaticDepreciation = automaticDepreciationFor(days, expenses);
   const fixedExpenses = expenses.filter((item) => item.type === "Mensual").reduce((sum, item) => sum + Number(item.amount || 0), 0) + automaticDepreciation;
   const dailyExpenses = expenses.filter((item) => item.type !== "Mensual").reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -374,6 +399,8 @@ function aggregateActivity(days, expenses) {
     fuelCost,
     variableCost,
     lossCharge,
+    totalCash,
+    totalQr,
     expenses: expenseTotal,
     automaticDepreciation,
     fixedExpenses,
@@ -393,6 +420,14 @@ function costPerBottleMetrics(data) {
     totalPerSold: soldBase ? data.totalCost / soldBase : 0,
     totalPerProduced: producedBase ? data.totalCost / producedBase : 0
   };
+}
+
+function driverQtyForDay(day, driver) {
+  const hasNew = day.drivers6 || day.drivers7;
+  if (hasNew) {
+    return Number((day.drivers6 || {})[driver] || 0) + Number((day.drivers7 || {})[driver] || 0);
+  }
+  return Number((day.drivers || {})[driver] || 0);
 }
 
 function calculateDriverDebts() {
@@ -454,7 +489,7 @@ function calculateAll() {
     caps: state.config.initialCaps + purchases.caps - used.caps,
     labels: state.config.initialLabels + purchases.labels - used.labels,
     seals: state.config.initialSeals + purchases.seals - used.seals,
-    gasoline: Number(state.config.initialGasoline || 0) + purchases.gasoline - used.gasLiters,
+    gasoline: Number(state.config.initialGasoline || 0) + purchases.gasoline - used.gasLiters - used.gasolineSold,
     diesel: Number(state.config.initialDiesel || 0) + purchases.diesel - used.dieselLiters,
     ready: dailyTotals.reduce((sum, row) => sum + row.leftover, 0)
   };
@@ -490,6 +525,8 @@ function renderKpis() {
   const kpis = [
     ["Ingresos", money(data.income), period],
     ["Ganancia neta", money(data.net), "Del período filtrado"],
+    ["Efectivo total", money(data.totalCash), "Período filtrado"],
+    ["QR total", money(data.totalQr), "Período filtrado"],
     ["Bidones vendidos", number(data.sold), "Del período filtrado"],
     ["Bidones producidos", number(data.used.produced), "Del período filtrado"],
     ["Bidones físicos vendidos", number(data.used.physicalBottlesSold), `${money(data.dailyTotals.reduce((sum, row) => sum + row.physicalBottleIncome, 0))} en envases`],
@@ -536,15 +573,17 @@ function renderStock() {
 function renderDriverInputs() {
   const wrap = document.getElementById("driverInputs");
   wrap.innerHTML = state.config.drivers.map((driver) => `
-    <label>${driver} vendidos
-      <input class="driverSale" data-driver="${driver}" type="number" min="0" value="0">
-    </label>
-    <label>${driver} gasolina (litros)
-      <input class="driverGas" data-driver="${driver}" type="number" min="0" step="0.01" value="0">
-    </label>
-    <label>${driver} diésel (litros)
-      <input class="driverDiesel" data-driver="${driver}" type="number" min="0" step="0.01" value="0">
-    </label>
+    <details class="driver-panel">
+      <summary class="driver-panel-summary">${driver} <span class="driver-panel-hint">— clic para expandir</span></summary>
+      <div class="driver-panel-body">
+        <label>Vendidos a 6 Bs <input class="driverSale6" data-driver="${driver}" type="number" min="0" value="0"></label>
+        <label>Vendidos a 7 Bs <input class="driverSale7" data-driver="${driver}" type="number" min="0" value="0"></label>
+        <label>Gasolina (litros) <input class="driverGas" data-driver="${driver}" type="number" min="0" step="0.01" value="0"></label>
+        <label>Diésel (litros) <input class="driverDiesel" data-driver="${driver}" type="number" min="0" step="0.01" value="0"></label>
+        <label>Efectivo recibido <input class="driverCash" data-driver="${driver}" type="number" min="0" step="0.01" value="0"></label>
+        <label>QR recibido <input class="driverQr" data-driver="${driver}" type="number" min="0" step="0.01" value="0"></label>
+      </div>
+    </details>
   `).join("");
 }
 
@@ -567,10 +606,12 @@ function renderDriverSelects() {
 function renderDriverSummary() {
   const days = dashboardDays();
   const rows = state.config.drivers.map((driver) => {
-    const qty = days.reduce((sum, day) => sum + Number((day.drivers || {})[driver] || 0), 0);
+    const qty = days.reduce((sum, day) => sum + driverQtyForDay(day, driver), 0);
     const gas = days.reduce((sum, day) => sum + Number((day.gasByDriver || {})[driver] || 0), 0);
     const diesel = days.reduce((sum, day) => sum + Number((day.dieselByDriver || {})[driver] || 0), 0);
-    return `<div class="mini-row"><span>${driver}</span><strong>${number(qty)} bidones | G:${number(gas)} L | D:${number(diesel)} L</strong></div>`;
+    const cash = days.reduce((sum, day) => sum + Number((day.cashByDriver || {})[driver] || 0), 0);
+    const qr = days.reduce((sum, day) => sum + Number((day.qrByDriver || {})[driver] || 0), 0);
+    return `<div class="mini-row"><span>${driver}<br><small>Ef: ${money(cash)} | QR: ${money(qr)} | G:${number(gas)}L | D:${number(diesel)}L</small></span><strong>${number(qty)} bidones</strong></div>`;
   }).join("");
   document.getElementById("driverSummary").innerHTML = rows || "<p>No hay choferes cargados.</p>";
 }
@@ -644,6 +685,8 @@ function renderDailyRows() {
       <td>${number(t.physicalBottlesSold)}</td>
       <td>${deliveredSummary(day)}</td>
       <td>${money(t.income)}</td>
+      <td>${money(t.totalCash)}</td>
+      <td>${money(t.totalQr)}</td>
       <td>${number(t.leftover)}</td>
       <td><button class="ghost" data-edit-day="${day.id}">Editar</button><button class="danger" data-delete-day="${day.id}">Borrar</button></td>
     </tr>`;
@@ -752,8 +795,12 @@ function renderDailySpendSummary() {
 
   const variableTotal = variableRows.reduce((sum, item) => sum + item.amount, 0);
   const total = expenseTotal + purchaseTotal + variableTotal + liabilityPaymentTotal;
+  const cashTotal = dayRecords.reduce((sum, day) => sum + totalsForDay(day).totalCash, 0);
+  const qrTotal = dayRecords.reduce((sum, day) => sum + totalsForDay(day).totalQr, 0);
 
   document.getElementById("dailySpendKpis").innerHTML = [
+    ["Efectivo recibido", money(cashTotal), "Choferes + venta directa"],
+    ["QR recibido", money(qrTotal), "Choferes + venta directa"],
     ["Gastos diarios", money(expenseTotal), "Cargados en gastos"],
     ["Compras", money(purchaseTotal), "Tapas, etiquetas, sellos, combustible, etc."],
     ["Variables producción", money(variableTotal), "Tapas, etiquetas, sellos, comisión y combustible usado"],
@@ -854,15 +901,28 @@ function renderReports() {
     if (to && day.date > to) return;
     const total = totalsForDay(day);
     if (driver) {
-      const qty = Number((day.drivers || {})[driver] || 0);
-      if (qty > 0) rows.push({ date: day.date, driver, qty, income: qty * state.config.priceDriver, total });
+      const qty = driverQtyForDay(day, driver);
+      const qty6 = Number((day.drivers6 || {})[driver] || 0);
+      const qty7 = Number((day.drivers7 || {})[driver] || 0);
+      const legacyQty = (day.drivers6 || day.drivers7) ? 0 : Number((day.drivers || {})[driver] || 0);
+      const driverInc = qty6 * Number(state.config.priceDriver6 || 6) + qty7 * Number(state.config.priceDriver7 || 7) + legacyQty * Number(state.config.priceDriver || 6);
+      if (qty > 0) rows.push({ date: day.date, driver, qty, income: driverInc, total });
     } else {
       state.config.drivers.forEach((name) => {
-        const qty = Number((day.drivers || {})[name] || 0);
-        if (qty > 0) rows.push({ date: day.date, driver: name, qty, income: qty * state.config.priceDriver, total });
+        const qty = driverQtyForDay(day, name);
+        const qty6 = Number((day.drivers6 || {})[name] || 0);
+        const qty7 = Number((day.drivers7 || {})[name] || 0);
+        const legacyQty = (day.drivers6 || day.drivers7) ? 0 : Number((day.drivers || {})[name] || 0);
+        const driverInc = qty6 * Number(state.config.priceDriver6 || 6) + qty7 * Number(state.config.priceDriver7 || 7) + legacyQty * Number(state.config.priceDriver || 6);
+        if (qty > 0) rows.push({ date: day.date, driver: name, qty, income: driverInc, total });
       });
-      if (Number(day.direct7 || 0) + Number(day.direct8 || 0) > 0) {
-        rows.push({ date: day.date, driver: "Venta directa", qty: Number(day.direct7 || 0) + Number(day.direct8 || 0), income: Number(day.direct7 || 0) * state.config.priceDirect7 + Number(day.direct8 || 0) * state.config.priceDirect8, total });
+      const directQty = Number(day.direct6 || 0) + Number(day.direct7 || 0) + Number(day.direct8 || 0) + Number(day.direct10 || 0);
+      const directInc = Number(day.direct6 || 0) * Number(state.config.priceDirect6 || 6) +
+                        Number(day.direct7 || 0) * state.config.priceDirect7 +
+                        Number(day.direct8 || 0) * state.config.priceDirect8 +
+                        Number(day.direct10 || 0) * Number(state.config.priceDirect10 || 10);
+      if (directQty > 0) {
+        rows.push({ date: day.date, driver: "Venta directa", qty: directQty, income: directInc, total });
       }
     }
   });
@@ -973,7 +1033,7 @@ function renderDriverRanking() {
   const thisMonth = todayIso().slice(0, 7);
   const thisDays = state.daily.filter(d => d.date.startsWith(thisMonth));
   const ranking = state.config.drivers.map(driver => {
-    const sold = thisDays.reduce((sum, day) => sum + Number((day.drivers || {})[driver] || 0), 0);
+    const sold = thisDays.reduce((sum, day) => sum + driverQtyForDay(day, driver), 0);
     return { driver, sold };
   }).sort((a, b) => b.sold - a.sold);
 
@@ -991,6 +1051,34 @@ function renderDriverRanking() {
   `).join("");
 }
 
+function renderDriverBonification() {
+  const el = document.getElementById("driverBonification");
+  if (!el) return;
+  const days = dashboardDays();
+  const rows = state.config.drivers.map((driver) => {
+    let totalQty = 0;
+    let bonus = 0;
+    days.forEach((day) => {
+      const qty = driverQtyForDay(day, driver);
+      totalQty += qty;
+      bonus += Math.floor(qty / 100) * 2;
+    });
+    return { driver, totalQty, bonus };
+  }).filter((r) => r.totalQty > 0);
+
+  if (!rows.length) {
+    el.innerHTML = "<p>Sin ventas registradas en el período.</p>";
+    return;
+  }
+
+  el.innerHTML = rows.map((row) => `
+    <div class="stock-row">
+      <span>${row.driver}<br><small>${number(row.totalQty)} bidones vendidos en el período</small></span>
+      <strong class="${row.bonus > 0 ? "ok" : ""}">${number(row.bonus)} bidón${row.bonus !== 1 ? "es" : ""} gratis</strong>
+    </div>
+  `).join("");
+}
+
 function renderAll() {
   renderDriverInputs();
   renderDriverSelects();
@@ -1003,6 +1091,7 @@ function renderAll() {
   renderSalesChart();
   renderMonthlyComparison();
   renderDriverRanking();
+  renderDriverBonification();
   renderDailyRows();
   renderPurchases();
   renderExpenses();
@@ -1040,9 +1129,25 @@ document.getElementById("dailyForm").addEventListener("submit", (event) => {
     alert("Elegí qué chofer fue responsable del bidón perdido.");
     return;
   }
+  const drivers6 = {};
+  document.querySelectorAll(".driverSale6").forEach((input) => {
+    drivers6[input.dataset.driver] = Number(input.value || 0);
+  });
+  const drivers7 = {};
+  document.querySelectorAll(".driverSale7").forEach((input) => {
+    drivers7[input.dataset.driver] = Number(input.value || 0);
+  });
+  const cashByDriver = {};
+  document.querySelectorAll(".driverCash").forEach((input) => {
+    cashByDriver[input.dataset.driver] = Number(input.value || 0);
+  });
+  const qrByDriver = {};
+  document.querySelectorAll(".driverQr").forEach((input) => {
+    qrByDriver[input.dataset.driver] = Number(input.value || 0);
+  });
   const drivers = {};
-  document.querySelectorAll(".driverSale").forEach((input) => {
-    drivers[input.dataset.driver] = Number(input.value || 0);
+  state.config.drivers.forEach((d) => {
+    drivers[d] = Number(drivers6[d] || 0) + Number(drivers7[d] || 0);
   });
   const gasByDriver = {};
   document.querySelectorAll(".driverGas").forEach((input) => {
@@ -1064,10 +1169,13 @@ document.getElementById("dailyForm").addEventListener("submit", (event) => {
     capsUsed: Number(document.getElementById("capsUsed").value || 0),
     labelsUsed: Number(document.getElementById("labelsUsed").value || 0),
     sealsUsed: Number(document.getElementById("sealsUsed").value || 0),
+    direct6: Number(document.getElementById("direct6").value || 0),
     direct7: Number(document.getElementById("direct7").value || 0),
     direct8: Number(document.getElementById("direct8").value || 0),
+    direct10: Number(document.getElementById("direct10").value || 0),
     physicalBottlesSold: Number(document.getElementById("physicalBottlesSold").value || 0),
     physicalBottleUnitPrice: Number(document.getElementById("physicalBottleUnitPrice").value || 0),
+    gasolineSoldLiters: Number(document.getElementById("gasolineSoldLiters").value || 0),
     cash: Number(document.getElementById("cash").value || 0),
     qr: Number(document.getElementById("qr").value || 0),
     broken,
@@ -1081,7 +1189,11 @@ document.getElementById("dailyForm").addEventListener("submit", (event) => {
     dieselByDriver,
     dieselCost: Number(document.getElementById("dieselCost").value || 0),
     notes: document.getElementById("notes").value.trim(),
-    drivers
+    drivers,
+    drivers6,
+    drivers7,
+    cashByDriver,
+    qrByDriver
   };
   state.daily = state.daily.filter((item) => item.id !== id);
   state.daily.push(record);
@@ -1205,7 +1317,7 @@ document.getElementById("debtInstallmentForm").addEventListener("submit", (event
 
 document.getElementById("configForm").addEventListener("submit", (event) => {
   event.preventDefault();
-  const numeric = ["initialBottles", "initialCaps", "initialLabels", "initialSeals", "initialGasoline", "initialDiesel", "priceDriver", "priceDirect7", "priceDirect8", "costCap", "costLabel", "costSeal", "gasolineLiterCost", "dieselLiterCost", "productionEmployee1Commission", "productionEmployee2Commission", "monthlyDepreciation", "lostCharge", "lowStock"];
+  const numeric = ["initialBottles", "initialCaps", "initialLabels", "initialSeals", "initialGasoline", "initialDiesel", "priceDriver", "priceDriver6", "priceDriver7", "priceDirect6", "priceDirect7", "priceDirect8", "priceDirect10", "gasolineSalePrice", "costCap", "costLabel", "costSeal", "gasolineLiterCost", "dieselLiterCost", "productionEmployee1Commission", "productionEmployee2Commission", "monthlyDepreciation", "lostCharge", "lowStock"];
   numeric.forEach((key) => {
     state.config[key] = Number(document.getElementById(key).value || 0);
   });
@@ -1266,13 +1378,16 @@ document.addEventListener("click", (event) => {
     if (!day) return;
     if (isOlderThan4Days(day.date) && !confirmProtected()) return;
     document.getElementById("dailyId").value = day.id;
-    ["date", "produced", "capsDelivered", "labelsDelivered", "sealsDelivered", "capsUsed", "labelsUsed", "sealsUsed", "direct7", "direct8", "physicalBottlesSold", "physicalBottleUnitPrice", "cash", "qr", "broken", "lost", "gasLiters", "gasCost", "dieselLiters", "dieselCost", "notes"].forEach((id) => {
+    ["date", "produced", "capsDelivered", "labelsDelivered", "sealsDelivered", "capsUsed", "labelsUsed", "sealsUsed", "direct6", "direct7", "direct8", "direct10", "physicalBottlesSold", "physicalBottleUnitPrice", "gasolineSoldLiters", "cash", "qr", "broken", "lost", "gasLiters", "gasCost", "dieselLiters", "dieselCost", "notes"].forEach((id) => {
       document.getElementById(id).value = day[id] ?? "";
     });
     document.getElementById("brokenDriver").value = day.brokenDriver || "";
     document.getElementById("lostDriver").value = day.lostDriver || "";
-    document.querySelectorAll(".driverSale").forEach((input) => {
-      input.value = (day.drivers || {})[input.dataset.driver] || 0;
+    document.querySelectorAll(".driverSale6").forEach((input) => {
+      input.value = (day.drivers6 || {})[input.dataset.driver] || 0;
+    });
+    document.querySelectorAll(".driverSale7").forEach((input) => {
+      input.value = (day.drivers7 || {})[input.dataset.driver] || 0;
     });
     document.querySelectorAll(".driverGas").forEach((input) => {
       input.value = (day.gasByDriver || {})[input.dataset.driver] || 0;
@@ -1280,6 +1395,13 @@ document.addEventListener("click", (event) => {
     document.querySelectorAll(".driverDiesel").forEach((input) => {
       input.value = (day.dieselByDriver || {})[input.dataset.driver] || 0;
     });
+    document.querySelectorAll(".driverCash").forEach((input) => {
+      input.value = (day.cashByDriver || {})[input.dataset.driver] || 0;
+    });
+    document.querySelectorAll(".driverQr").forEach((input) => {
+      input.value = (day.qrByDriver || {})[input.dataset.driver] || 0;
+    });
+    document.querySelectorAll(".driver-panel").forEach((panel) => { panel.open = true; });
     document.querySelector('[data-view="registro"]').click();
   }
 
@@ -1354,6 +1476,7 @@ document.getElementById("todaySpendBtn").addEventListener("click", () => {
   document.getElementById(id).addEventListener("input", () => {
     renderKpis();
     renderDriverSummary();
+    renderDriverBonification();
     renderProductionSupplySummary();
     renderCostPerBottleSummary();
   });
@@ -1364,6 +1487,7 @@ document.getElementById("clearDashFilter").addEventListener("click", () => {
   document.getElementById("dashTo").value = "";
   renderKpis();
   renderDriverSummary();
+  renderDriverBonification();
   renderProductionSupplySummary();
   renderCostPerBottleSummary();
 });
