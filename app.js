@@ -72,6 +72,9 @@ function renameDriverKey(map, oldName, newName) {
 
 function normalizeState(data) {
   data.config.drivers = data.config.drivers || defaults.config.drivers;
+  ["Chofer 4", "Chofer 5", "Chofer 6"].forEach((d) => {
+    if (!data.config.drivers.includes(d)) data.config.drivers.push(d);
+  });
   if (data.config.productionEmployee1Commission == null) data.config.productionEmployee1Commission = 0.15;
   if (data.config.productionEmployee2Commission == null) data.config.productionEmployee2Commission = 0.15;
   if (data.config.gasolineLiterCost == null) data.config.gasolineLiterCost = 6.96;
@@ -1182,12 +1185,12 @@ document.getElementById("dailyForm").addEventListener("submit", (event) => {
     brokenDriver,
     lost,
     lostDriver,
-    gasLiters: driverGasTotal || Number(document.getElementById("gasLiters").value || 0),
+    gasLiters: driverGasTotal,
     gasByDriver,
-    gasCost: Number(document.getElementById("gasCost").value || 0),
-    dieselLiters: driverDieselTotal || Number(document.getElementById("dieselLiters").value || 0),
+    gasCost: 0,
+    dieselLiters: driverDieselTotal,
     dieselByDriver,
-    dieselCost: Number(document.getElementById("dieselCost").value || 0),
+    dieselCost: 0,
     notes: document.getElementById("notes").value.trim(),
     drivers,
     drivers6,
@@ -1378,7 +1381,7 @@ document.addEventListener("click", (event) => {
     if (!day) return;
     if (isOlderThan4Days(day.date) && !confirmProtected()) return;
     document.getElementById("dailyId").value = day.id;
-    ["date", "produced", "capsDelivered", "labelsDelivered", "sealsDelivered", "capsUsed", "labelsUsed", "sealsUsed", "direct6", "direct7", "direct8", "direct10", "physicalBottlesSold", "physicalBottleUnitPrice", "gasolineSoldLiters", "cash", "qr", "broken", "lost", "gasLiters", "gasCost", "dieselLiters", "dieselCost", "notes"].forEach((id) => {
+    ["date", "produced", "capsDelivered", "labelsDelivered", "sealsDelivered", "capsUsed", "labelsUsed", "sealsUsed", "direct6", "direct7", "direct8", "direct10", "physicalBottlesSold", "physicalBottleUnitPrice", "gasolineSoldLiters", "cash", "qr", "broken", "lost", "notes"].forEach((id) => {
       document.getElementById(id).value = day[id] ?? "";
     });
     document.getElementById("brokenDriver").value = day.brokenDriver || "";
