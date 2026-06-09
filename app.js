@@ -1054,6 +1054,29 @@ function renderDriverRanking() {
   `).join("");
 }
 
+function renderDailyBottleTracking() {
+  const el = document.getElementById("dailyBottleTracking");
+  if (!el) return;
+  const sorted = [...state.daily].sort((a, b) => a.date.localeCompare(b.date));
+  if (!sorted.length) {
+    el.innerHTML = "<p>No hay registros diarios.</p>";
+    return;
+  }
+  let startWith = 0;
+  const rows = sorted.map((day) => {
+    const t = totalsForDay(day);
+    const result = { date: day.date, startWith, leftover: t.leftover };
+    startWith += t.leftover;
+    return result;
+  });
+  el.innerHTML = rows.slice(-10).reverse().map((row) => `
+    <div class="stock-row">
+      <span>${row.date}<br><small>Empecé el día con <strong>${number(row.startWith)}</strong> llenos</small></span>
+      <strong class="${row.leftover > 0 ? "ok" : ""}">${number(row.leftover)} sobraron</strong>
+    </div>
+  `).join("");
+}
+
 function renderDriverBonification() {
   const el = document.getElementById("driverBonification");
   if (!el) return;
@@ -1095,6 +1118,7 @@ function renderAll() {
   renderMonthlyComparison();
   renderDriverRanking();
   renderDriverBonification();
+  renderDailyBottleTracking();
   renderDailyRows();
   renderPurchases();
   renderExpenses();
