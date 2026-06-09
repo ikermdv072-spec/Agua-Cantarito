@@ -693,7 +693,13 @@ function renderExpenses() {
   const rowHtml = (item) => `
     <tr><td>${item.date}</td><td>${item.category}</td><td>${money(item.amount)}</td><td>${item.note || ""}</td><td><button class="danger" data-delete-expense="${item.id}">Borrar</button></td></tr>
   `;
-  document.getElementById("dailyExpenseRows").innerHTML = sorted.filter((item) => item.type === "Diario" || item.type === "Extraordinario").map(rowHtml).join("");
+  const purchaseRowHtml = (p) => `
+    <tr><td>${p.date}</td><td>Compra: ${purchaseName(p.item)}</td><td>${money(p.cost)}</td><td>${number(p.qty)} ${p.item === "gasoline" || p.item === "diesel" ? "litros" : "unidades"}</td><td><button class="danger" data-delete-purchase="${p.id}">Borrar</button></td></tr>
+  `;
+  const dailyExpenses = sorted.filter((item) => item.type === "Diario" || item.type === "Extraordinario").map((item) => ({ date: item.date, html: rowHtml(item) }));
+  const purchasesAsRows = [...state.purchases].map((p) => ({ date: p.date, html: purchaseRowHtml(p) }));
+  const allDaily = [...dailyExpenses, ...purchasesAsRows].sort((a, b) => b.date.localeCompare(a.date));
+  document.getElementById("dailyExpenseRows").innerHTML = allDaily.map((r) => r.html).join("");
   const months = new Set([monthKey(todayIso())]);
   state.daily.forEach((day) => months.add(monthKey(day.date)));
   state.expenses.forEach((item) => months.add(monthKey(item.date)));
@@ -783,6 +789,13 @@ function allExpenseLikeRows() {
     note: item.note || "",
     amount: Number(item.amount || 0)
   }));
+  const purchaseRows = (state.purchases || []).map((p) => ({
+    date: p.date,
+    type: "Compra",
+    category: `Compra: ${purchaseName(p.item)}`,
+    note: `${number(p.qty)} ${p.item === "gasoline" || p.item === "diesel" ? "litros" : "unidades"}`,
+    amount: Number(p.cost || 0)
+  }));
   const liabilityRows = (state.liabilityPayments || []).map((payment) => {
     const debt = (state.liabilityDebts || []).find((item) => item.id === payment.debtId);
     return {
@@ -793,7 +806,7 @@ function allExpenseLikeRows() {
       amount: Number(payment.amount || 0)
     };
   });
-  return [...expenseRows, ...liabilityRows].sort((a, b) => b.date.localeCompare(a.date));
+  return [...expenseRows, ...purchaseRows, ...liabilityRows].sort((a, b) => b.date.localeCompare(a.date));
 }
 
 function renderExpenseFilter() {
