@@ -1204,7 +1204,7 @@ function renderDashboardDailyExpenses() {
 }
 
 function gratisCostPerBottle() {
-  return Number(state.config.costCap || 0) + Number(state.config.costLabel || 0) + Number(state.config.costSeal || 0) + Number(state.config.commission || 0);
+  return Number(state.config.costCap || 0) + Number(state.config.costLabel || 0) + Number(state.config.costSeal || 0);
 }
 
 function renderGratis() {
@@ -1215,7 +1215,7 @@ function renderGratis() {
 
   document.getElementById("gratisSummary").innerHTML = [
     `<div class="stock-row"><span>Bidones retirados en total</span><strong>${number(totalQty)}</strong></div>`,
-    `<div class="stock-row"><span>Costo estimado total<br><small>Tapas + etiquetas + sellos + comisión = ${money(costPerBottle)} por bidón</small></span><strong class="low">${money(totalCost)}</strong></div>`
+    `<div class="stock-row"><span>Costo estimado total<br><small>Tapas + etiquetas + sellos = ${money(costPerBottle)} por bidón (sin comisión de producción)</small></span><strong class="low">${money(totalCost)}</strong></div>`
   ].join("");
 
   document.getElementById("gratisRows").innerHTML = list.map((item) => {
