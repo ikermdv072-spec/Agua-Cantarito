@@ -43,6 +43,7 @@
     <button class="tab" data-view="inventario">Inventario</button>
     <button class="tab" data-view="gastos">Gastos</button>
     <button class="tab" data-view="reportes">Reportes</button>
+    <button class="tab" data-view="gratis">Gratis</button>
     <button class="tab" data-view="config">Config</button>
   </nav>
 
@@ -383,6 +384,35 @@
           <table>
             <thead><tr><th>Fecha</th><th>Repartidor</th><th>Cantidad</th><th>Ingresos</th><th>Total día</th><th>Ganancia estimada</th></tr></thead>
             <tbody id="reportRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="gratis" class="view">
+      <div class="section-title">
+        <h2>Gratis</h2>
+        <p>Bidones que te llevás para uso personal. Sin ingresos para la empresa, pero el costo de producción se registra.</p>
+      </div>
+      <div class="grid two">
+        <form id="gratisForm" class="panel form-grid compact">
+          <h3 class="wide">Registrar retiro personal</h3>
+          <label>Fecha <input id="gratisDate" type="date" required></label>
+          <label>Cantidad de bidones <input id="gratisQty" type="number" min="1" value="1"></label>
+          <label>Detalle <input id="gratisNote" type="text" placeholder="Opcional"></label>
+          <button class="wide" type="submit">Guardar</button>
+        </form>
+        <section class="panel">
+          <h3>Resumen</h3>
+          <div id="gratisSummary" class="stock-list"></div>
+        </section>
+      </div>
+      <div class="panel">
+        <h3>Historial de retiros</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Fecha</th><th>Bidones</th><th>Costo estimado</th><th>Detalle</th><th>Acción</th></tr></thead>
+            <tbody id="gratisRows"></tbody>
           </table>
         </div>
       </div>

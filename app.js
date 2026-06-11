@@ -31,14 +31,15 @@ const defaults = {
     monthlyDepreciation: 1000,
     lostCharge: 30,
     lowStock: 500,
-    drivers: ["Etenier", "Sebastian", "Freddy", "Chofer random", "Chofer 4", "Chofer 5", "Chofer 6"]
+    drivers: ["Etenier", "Paraguayo", "Freddy", "Rolando", "Brandon", "Juan", "Pedro", "Chofer 5", "Chofer 6"]
   },
   daily: [],
   purchases: [],
   expenses: [],
   debtPayments: [],
   liabilityDebts: [],
-  liabilityPayments: []
+  liabilityPayments: [],
+  gratis: []
 };
 
 let state = loadState();
@@ -72,7 +73,53 @@ function renameDriverKey(map, oldName, newName) {
 
 function normalizeState(data) {
   data.config.drivers = data.config.drivers || defaults.config.drivers;
-  ["Chofer 4", "Chofer 5", "Chofer 6"].forEach((d) => {
+  ["Chofer 5", "Chofer 6"].forEach((d) => {
+    if (!data.config.drivers.includes(d)) data.config.drivers.push(d);
+  });
+  // Fusionar "Chofer 4" → "Sebastian" (mismo repartidor, nombre duplicado por error)
+  if (data.config.drivers.includes("Chofer 4")) {
+    data.config.drivers = data.config.drivers.filter((d) => d !== "Chofer 4");
+    (data.daily || []).forEach((day) => {
+      ["drivers", "drivers6", "drivers7", "cashByDriver", "qrByDriver", "gasByDriver", "dieselByDriver"].forEach((field) => {
+        renameDriverKey(day[field], "Chofer 4", "Sebastian");
+      });
+      if (day.brokenDriver === "Chofer 4") day.brokenDriver = "Sebastian";
+      if (day.lostDriver === "Chofer 4") day.lostDriver = "Sebastian";
+    });
+    (data.debtPayments || []).forEach((p) => {
+      if (p.driver === "Chofer 4") p.driver = "Sebastian";
+    });
+  }
+  // Renombrar "Chofer random" → "Rolando"
+  if (data.config.drivers.includes("Chofer random")) {
+    data.config.drivers = data.config.drivers.map((d) => d === "Chofer random" ? "Rolando" : d);
+    (data.daily || []).forEach((day) => {
+      ["drivers", "drivers6", "drivers7", "cashByDriver", "qrByDriver", "gasByDriver", "dieselByDriver"].forEach((field) => {
+        renameDriverKey(day[field], "Chofer random", "Rolando");
+      });
+      if (day.brokenDriver === "Chofer random") day.brokenDriver = "Rolando";
+      if (day.lostDriver === "Chofer random") day.lostDriver = "Rolando";
+    });
+    (data.debtPayments || []).forEach((p) => {
+      if (p.driver === "Chofer random") p.driver = "Rolando";
+    });
+  }
+  // Renombrar "Sebastian" → "Paraguayo"
+  if (data.config.drivers.includes("Sebastian")) {
+    data.config.drivers = data.config.drivers.map((d) => d === "Sebastian" ? "Paraguayo" : d);
+    (data.daily || []).forEach((day) => {
+      ["drivers", "drivers6", "drivers7", "cashByDriver", "qrByDriver", "gasByDriver", "dieselByDriver"].forEach((field) => {
+        renameDriverKey(day[field], "Sebastian", "Paraguayo");
+      });
+      if (day.brokenDriver === "Sebastian") day.brokenDriver = "Paraguayo";
+      if (day.lostDriver === "Sebastian") day.lostDriver = "Paraguayo";
+    });
+    (data.debtPayments || []).forEach((p) => {
+      if (p.driver === "Sebastian") p.driver = "Paraguayo";
+    });
+  }
+  // Agregar nuevos choferes si no están
+  ["Brandon", "Juan", "Pedro"].forEach((d) => {
     if (!data.config.drivers.includes(d)) data.config.drivers.push(d);
   });
   if (data.config.productionEmployee1Commission == null) data.config.productionEmployee1Commission = 0.15;
@@ -92,6 +139,7 @@ function normalizeState(data) {
   data.debtPayments = data.debtPayments || [];
   data.liabilityDebts = data.liabilityDebts || [];
   data.liabilityPayments = data.liabilityPayments || [];
+  data.gratis = data.gratis || [];
   return data;
 }
 
@@ -521,7 +569,7 @@ function calculateAll() {
 }
 
 function setDefaultDates() {
-  ["date", "purchaseDate", "dailyExpenseDate", "monthlyExpenseDate", "debtPaymentDate", "dailySpendDate", "debtDate", "debtInstallmentDate"].forEach((id) => {
+  ["date", "purchaseDate", "dailyExpenseDate", "monthlyExpenseDate", "debtPaymentDate", "dailySpendDate", "debtDate", "debtInstallmentDate", "gratisDate"].forEach((id) => {
     const input = document.getElementById(id);
     if (input && !input.value) input.value = todayIso();
   });
@@ -1155,6 +1203,33 @@ function renderDashboardDailyExpenses() {
   ].map(kpiHtml).join("");
 }
 
+function gratisCostPerBottle() {
+  return Number(state.config.costCap || 0) + Number(state.config.costLabel || 0) + Number(state.config.costSeal || 0) + Number(state.config.commission || 0);
+}
+
+function renderGratis() {
+  const list = [...(state.gratis || [])].sort((a, b) => b.date.localeCompare(a.date));
+  const costPerBottle = gratisCostPerBottle();
+  const totalQty = list.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+  const totalCost = totalQty * costPerBottle;
+
+  document.getElementById("gratisSummary").innerHTML = [
+    `<div class="stock-row"><span>Bidones retirados en total</span><strong>${number(totalQty)}</strong></div>`,
+    `<div class="stock-row"><span>Costo estimado total<br><small>Tapas + etiquetas + sellos + comisión = ${money(costPerBottle)} por bidón</small></span><strong class="low">${money(totalCost)}</strong></div>`
+  ].join("");
+
+  document.getElementById("gratisRows").innerHTML = list.map((item) => {
+    const cost = Number(item.qty || 0) * costPerBottle;
+    return `<tr>
+      <td>${item.date}</td>
+      <td>${number(item.qty)}</td>
+      <td>${money(cost)}</td>
+      <td>${item.note || ""}</td>
+      <td><button class="danger" data-delete-gratis="${item.id}">Borrar</button></td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="5">No hay retiros registrados.</td></tr>`;
+}
+
 function renderAll() {
   renderDriverInputs();
   renderDriverSelects();
@@ -1178,6 +1253,7 @@ function renderAll() {
   renderExpenseFilter();
   renderDebtPayments();
   renderReports();
+  renderGratis();
   loadConfigForm();
   loadSupabaseForm();
   setDefaultDates();
@@ -1393,6 +1469,25 @@ document.getElementById("debtInstallmentForm").addEventListener("submit", (event
   renderAll();
 });
 
+document.getElementById("gratisForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const qty = Number(document.getElementById("gratisQty").value || 0);
+  if (qty <= 0) {
+    alert("Poné al menos 1 bidón.");
+    return;
+  }
+  state.gratis = state.gratis || [];
+  state.gratis.push({
+    id: uid(),
+    date: document.getElementById("gratisDate").value,
+    qty,
+    note: document.getElementById("gratisNote").value.trim()
+  });
+  saveState();
+  event.target.reset();
+  renderAll();
+});
+
 document.getElementById("configForm").addEventListener("submit", (event) => {
   event.preventDefault();
   const numeric = ["initialBottles", "initialCaps", "initialLabels", "initialSeals", "initialGasoline", "initialDiesel", "priceDriver", "priceDriver6", "priceDriver7", "priceDirect6", "priceDirect7", "priceDirect8", "priceDirect10", "gasolineSalePrice", "costCap", "costLabel", "costSeal", "gasolineLiterCost", "dieselLiterCost", "productionEmployee1Commission", "productionEmployee2Commission", "monthlyDepreciation", "lostCharge", "lowStock"];
@@ -1530,6 +1625,16 @@ document.addEventListener("click", (event) => {
     if (isOlderThan4Days(payment.date) && !confirmProtected()) return;
     if (!confirm("¿Borrar este pago de deuda?")) return;
     state.liabilityPayments = (state.liabilityPayments || []).filter((item) => item.id !== target.dataset.deleteLiabilityPayment);
+    saveState();
+    renderAll();
+  }
+
+  if (target.dataset.deleteGratis) {
+    const item = (state.gratis || []).find((g) => g.id === target.dataset.deleteGratis);
+    if (!item) return;
+    if (isOlderThan4Days(item.date) && !confirmProtected()) return;
+    if (!confirm("¿Borrar este retiro?")) return;
+    state.gratis = (state.gratis || []).filter((g) => g.id !== target.dataset.deleteGratis);
     saveState();
     renderAll();
   }
