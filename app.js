@@ -346,6 +346,15 @@ function monthKey(date) {
   return date ? date.slice(0, 7) : "";
 }
 
+function weekKey(dateIso) {
+  const d = new Date(dateIso + "T12:00:00");
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d);
+  monday.setDate(diff);
+  return monday.toISOString().slice(0, 10);
+}
+
 function automaticDepreciationFor(days, expenses) {
   const months = new Set();
   days.forEach((day) => months.add(monthKey(day.date)));
@@ -1079,14 +1088,21 @@ function renderDriverBonification() {
   if (!el) return;
   const days = dashboardDays();
   const rows = state.config.drivers.map((driver) => {
-    let totalQty = 0;
-    let bonus = 0;
+    const weekMap = {};
     days.forEach((day) => {
       const qty = driverQtyForDay(day, driver);
-      totalQty += qty;
-      bonus += Math.floor(qty / 100) * 2;
+      if (qty > 0) {
+        const wk = weekKey(day.date);
+        weekMap[wk] = (weekMap[wk] || 0) + qty;
+      }
     });
-    return { driver, totalQty, bonus };
+    const totalQty = Object.values(weekMap).reduce((s, v) => s + v, 0);
+    let bonus = 0;
+    let qualifyingWeeks = 0;
+    Object.values(weekMap).forEach((weekQty) => {
+      if (weekQty >= 500) { bonus += 10; qualifyingWeeks++; }
+    });
+    return { driver, totalQty, bonus, qualifyingWeeks };
   }).filter((r) => r.totalQty > 0);
 
   if (!rows.length) {
@@ -1096,7 +1112,7 @@ function renderDriverBonification() {
 
   el.innerHTML = rows.map((row) => `
     <div class="stock-row">
-      <span>${row.driver}<br><small>${number(row.totalQty)} bidones vendidos en el período</small></span>
+      <span>${row.driver}<br><small>${number(row.totalQty)} bidones vendidos · ${row.qualifyingWeeks} semana${row.qualifyingWeeks !== 1 ? "s" : ""} con 500+</small></span>
       <strong class="${row.bonus > 0 ? "ok" : ""}">${number(row.bonus)} bidón${row.bonus !== 1 ? "es" : ""} gratis</strong>
     </div>
   `).join("");
@@ -1105,11 +1121,24 @@ function renderDriverBonification() {
 function renderDashboardDailyExpenses() {
   const el = document.getElementById("dashDailyExpenseKpis");
   if (!el) return;
-  const date = todayIso();
-  const dailyExpenses = state.expenses.filter((item) => item.date === date && item.type !== "Mensual");
-  const purchases = state.purchases.filter((item) => item.date === date);
-  const liabilityPayments = (state.liabilityPayments || []).filter((item) => item.date === date);
-  const dayRecords = state.daily.filter((item) => item.date === date);
+  const { from, to } = dashboardRange();
+  const hasFilter = from || to;
+
+  let dailyExpenses, purchases, liabilityPayments, dayRecords, label;
+  if (hasFilter) {
+    dailyExpenses = state.expenses.filter((item) => dateInRange(item.date, from, to) && item.type !== "Mensual");
+    purchases = state.purchases.filter((item) => dateInRange(item.date, from, to));
+    liabilityPayments = (state.liabilityPayments || []).filter((item) => dateInRange(item.date, from, to));
+    dayRecords = state.daily.filter((item) => dateInRange(item.date, from, to));
+    label = `${from || "inicio"} a ${to || "hoy"}`;
+  } else {
+    const date = todayIso();
+    dailyExpenses = state.expenses.filter((item) => item.date === date && item.type !== "Mensual");
+    purchases = state.purchases.filter((item) => item.date === date);
+    liabilityPayments = (state.liabilityPayments || []).filter((item) => item.date === date);
+    dayRecords = state.daily.filter((item) => item.date === date);
+    label = date;
+  }
 
   const expenseTotal = dailyExpenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const purchaseTotal = purchases.reduce((sum, item) => sum + Number(item.cost || 0), 0);
@@ -1118,11 +1147,11 @@ function renderDashboardDailyExpenses() {
   const total = expenseTotal + purchaseTotal + variableTotal + liabilityPaymentTotal;
 
   el.innerHTML = [
-    ["Total gastos del día", money(total), date],
+    [hasFilter ? "Total gastos del período" : "Total gastos del día", money(total), label],
     ["Gastos diarios", money(expenseTotal), "Cargados en gastos"],
     ["Compras", money(purchaseTotal), "Inventario y combustible"],
     ["Costos variables", money(variableTotal), "Insumos, comisión y combustible"],
-    ["Pagos de deuda", money(liabilityPaymentTotal), "Cuotas pagadas hoy"]
+    ["Pagos de deuda", money(liabilityPaymentTotal), hasFilter ? "Cuotas pagadas en el período" : "Cuotas pagadas hoy"]
   ].map(kpiHtml).join("");
 }
 
@@ -1524,6 +1553,7 @@ document.getElementById("todaySpendBtn").addEventListener("click", () => {
 ["dashFrom", "dashTo"].forEach((id) => {
   document.getElementById(id).addEventListener("input", () => {
     renderKpis();
+    renderDashboardDailyExpenses();
     renderDriverSummary();
     renderDriverBonification();
     renderProductionSupplySummary();
@@ -1535,6 +1565,7 @@ document.getElementById("clearDashFilter").addEventListener("click", () => {
   document.getElementById("dashFrom").value = "";
   document.getElementById("dashTo").value = "";
   renderKpis();
+  renderDashboardDailyExpenses();
   renderDriverSummary();
   renderDriverBonification();
   renderProductionSupplySummary();
