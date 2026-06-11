@@ -349,7 +349,6 @@ function monthKey(date) {
 function automaticDepreciationFor(days, expenses) {
   const months = new Set();
   days.forEach((day) => months.add(monthKey(day.date)));
-  expenses.forEach((item) => months.add(monthKey(item.date)));
   months.delete("");
   return months.size * Number(state.config.monthlyDepreciation || 0);
 }
@@ -746,10 +745,8 @@ function renderExpenses() {
   const purchasesAsRows = [...state.purchases].map((p) => ({ date: p.date, html: purchaseRowHtml(p) }));
   const allDaily = [...dailyExpenses, ...purchasesAsRows].sort((a, b) => b.date.localeCompare(a.date));
   document.getElementById("dailyExpenseRows").innerHTML = allDaily.map((r) => r.html).join("");
-  const months = new Set([monthKey(todayIso())]);
+  const months = new Set();
   state.daily.forEach((day) => months.add(monthKey(day.date)));
-  state.expenses.forEach((item) => months.add(monthKey(item.date)));
-  state.purchases.forEach((item) => months.add(monthKey(item.date)));
   months.delete("");
   const depreciationRows = [...months].sort().reverse().map((month) => `
     <tr><td>${month}</td><td>Depreciación automática</td><td>${money(state.config.monthlyDepreciation)}</td><td>Gasto fijo automático mensual</td><td>Automático</td></tr>
@@ -1105,10 +1102,35 @@ function renderDriverBonification() {
   `).join("");
 }
 
+function renderDashboardDailyExpenses() {
+  const el = document.getElementById("dashDailyExpenseKpis");
+  if (!el) return;
+  const date = todayIso();
+  const dailyExpenses = state.expenses.filter((item) => item.date === date && item.type !== "Mensual");
+  const purchases = state.purchases.filter((item) => item.date === date);
+  const liabilityPayments = (state.liabilityPayments || []).filter((item) => item.date === date);
+  const dayRecords = state.daily.filter((item) => item.date === date);
+
+  const expenseTotal = dailyExpenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const purchaseTotal = purchases.reduce((sum, item) => sum + Number(item.cost || 0), 0);
+  const liabilityPaymentTotal = liabilityPayments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const variableTotal = dayRecords.reduce((sum, day) => sum + totalsForDay(day).variableCost, 0);
+  const total = expenseTotal + purchaseTotal + variableTotal + liabilityPaymentTotal;
+
+  el.innerHTML = [
+    ["Total gastos del día", money(total), date],
+    ["Gastos diarios", money(expenseTotal), "Cargados en gastos"],
+    ["Compras", money(purchaseTotal), "Inventario y combustible"],
+    ["Costos variables", money(variableTotal), "Insumos, comisión y combustible"],
+    ["Pagos de deuda", money(liabilityPaymentTotal), "Cuotas pagadas hoy"]
+  ].map(kpiHtml).join("");
+}
+
 function renderAll() {
   renderDriverInputs();
   renderDriverSelects();
   renderKpis();
+  renderDashboardDailyExpenses();
   renderStock();
   renderDriverSummary();
   renderDriverDebts();
