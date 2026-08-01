@@ -1,3 +1,4 @@
+const DRIVER_PRICE_TIERS = [5, 6, 7, 8, 9, 10];
 const STORAGE_KEY = "sistema-agua-bidones-v1";
 const SUPABASE_CONFIG_KEY = "sistema-agua-bidones-supabase";
 const PROTECTED_PASSWORD = "1703215012";
@@ -13,8 +14,12 @@ const defaults = {
     initialGasoline: 0,
     initialDiesel: 0,
     priceDriver: 6,
+    priceDriver5: 5,
     priceDriver6: 6,
     priceDriver7: 7,
+    priceDriver8: 8,
+    priceDriver9: 9,
+    priceDriver10: 10,
     priceDirect6: 6,
     priceDirect7: 7,
     priceDirect8: 8,
@@ -80,7 +85,7 @@ function normalizeState(data) {
   if (data.config.drivers.includes("Chofer 4")) {
     data.config.drivers = data.config.drivers.filter((d) => d !== "Chofer 4");
     (data.daily || []).forEach((day) => {
-      ["drivers", "drivers6", "drivers7", "cashByDriver", "qrByDriver", "gasByDriver", "dieselByDriver"].forEach((field) => {
+      ["drivers", "drivers5", "drivers6", "drivers7", "drivers8", "drivers9", "drivers10", "cashByDriver", "qrByDriver", "gasByDriver", "dieselByDriver"].forEach((field) => {
         renameDriverKey(day[field], "Chofer 4", "Sebastian");
       });
       if (day.brokenDriver === "Chofer 4") day.brokenDriver = "Sebastian";
@@ -94,7 +99,7 @@ function normalizeState(data) {
   if (data.config.drivers.includes("Chofer random")) {
     data.config.drivers = data.config.drivers.map((d) => d === "Chofer random" ? "Rolando" : d);
     (data.daily || []).forEach((day) => {
-      ["drivers", "drivers6", "drivers7", "cashByDriver", "qrByDriver", "gasByDriver", "dieselByDriver"].forEach((field) => {
+      ["drivers", "drivers5", "drivers6", "drivers7", "drivers8", "drivers9", "drivers10", "cashByDriver", "qrByDriver", "gasByDriver", "dieselByDriver"].forEach((field) => {
         renameDriverKey(day[field], "Chofer random", "Rolando");
       });
       if (day.brokenDriver === "Chofer random") day.brokenDriver = "Rolando";
@@ -108,7 +113,7 @@ function normalizeState(data) {
   if (data.config.drivers.includes("Sebastian")) {
     data.config.drivers = data.config.drivers.map((d) => d === "Sebastian" ? "Paraguayo" : d);
     (data.daily || []).forEach((day) => {
-      ["drivers", "drivers6", "drivers7", "cashByDriver", "qrByDriver", "gasByDriver", "dieselByDriver"].forEach((field) => {
+      ["drivers", "drivers5", "drivers6", "drivers7", "drivers8", "drivers9", "drivers10", "cashByDriver", "qrByDriver", "gasByDriver", "dieselByDriver"].forEach((field) => {
         renameDriverKey(day[field], "Sebastian", "Paraguayo");
       });
       if (day.brokenDriver === "Sebastian") day.brokenDriver = "Paraguayo";
@@ -129,8 +134,12 @@ function normalizeState(data) {
   if (data.config.initialGasoline == null) data.config.initialGasoline = 0;
   if (data.config.initialDiesel == null) data.config.initialDiesel = 0;
   if (data.config.monthlyDepreciation == null) data.config.monthlyDepreciation = 1000;
+  if (data.config.priceDriver5 == null) data.config.priceDriver5 = 5;
   if (data.config.priceDriver6 == null) data.config.priceDriver6 = 6;
   if (data.config.priceDriver7 == null) data.config.priceDriver7 = 7;
+  if (data.config.priceDriver8 == null) data.config.priceDriver8 = 8;
+  if (data.config.priceDriver9 == null) data.config.priceDriver9 = 9;
+  if (data.config.priceDriver10 == null) data.config.priceDriver10 = 10;
   if (data.config.priceDirect6 == null) data.config.priceDirect6 = 6;
   if (data.config.priceDirect10 == null) data.config.priceDirect10 = 10;
   if (data.config.gasolineSalePrice == null) data.config.gasolineSalePrice = 7;
@@ -324,11 +333,17 @@ function dashboardExpenses() {
 }
 
 function totalsForDay(day) {
-  const hasNewDriverData = day.drivers6 || day.drivers7;
-  const driverQty6 = Object.values(day.drivers6 || {}).reduce((sum, val) => sum + Number(val || 0), 0);
-  const driverQty7 = Object.values(day.drivers7 || {}).reduce((sum, val) => sum + Number(val || 0), 0);
+  const hasNewDriverData = DRIVER_PRICE_TIERS.some((tier) => day[`drivers${tier}`]);
+  let driverQty = 0;
+  let driverIncome = 0;
+  DRIVER_PRICE_TIERS.forEach((tier) => {
+    const qty = Object.values(day[`drivers${tier}`] || {}).reduce((sum, val) => sum + Number(val || 0), 0);
+    driverQty += qty;
+    driverIncome += qty * Number(state.config[`priceDriver${tier}`] || tier);
+  });
   const legacyDriverQty = hasNewDriverData ? 0 : Object.values(day.drivers || {}).reduce((sum, val) => sum + Number(val || 0), 0);
-  const driverQty = driverQty6 + driverQty7 + legacyDriverQty;
+  driverQty += legacyDriverQty;
+  driverIncome += legacyDriverQty * Number(state.config.priceDriver || 6);
 
   const direct6 = Number(day.direct6 || 0);
   const direct7 = Number(day.direct7 || 0);
@@ -340,10 +355,6 @@ function totalsForDay(day) {
 
   const sold = driverQty + direct6 + direct7 + direct8 + direct10;
 
-  const driverIncome6 = driverQty6 * Number(state.config.priceDriver6 || 6);
-  const driverIncome7 = driverQty7 * Number(state.config.priceDriver7 || 7);
-  const legacyDriverIncome = legacyDriverQty * Number(state.config.priceDriver || 6);
-  const driverIncome = driverIncome6 + driverIncome7 + legacyDriverIncome;
   const directIncome = direct6 * Number(state.config.priceDirect6 || 6) +
                        direct7 * state.config.priceDirect7 +
                        direct8 * state.config.priceDirect8 +
@@ -482,11 +493,22 @@ function costPerBottleMetrics(data) {
 }
 
 function driverQtyForDay(day, driver) {
-  const hasNew = day.drivers6 || day.drivers7;
+  const hasNew = DRIVER_PRICE_TIERS.some((tier) => day[`drivers${tier}`]);
   if (hasNew) {
-    return Number((day.drivers6 || {})[driver] || 0) + Number((day.drivers7 || {})[driver] || 0);
+    return DRIVER_PRICE_TIERS.reduce((sum, tier) => sum + Number((day[`drivers${tier}`] || {})[driver] || 0), 0);
   }
   return Number((day.drivers || {})[driver] || 0);
+}
+
+function driverIncomeForDay(day, driver) {
+  const hasNew = DRIVER_PRICE_TIERS.some((tier) => day[`drivers${tier}`]);
+  if (hasNew) {
+    return DRIVER_PRICE_TIERS.reduce((sum, tier) => {
+      const qty = Number((day[`drivers${tier}`] || {})[driver] || 0);
+      return sum + qty * Number(state.config[`priceDriver${tier}`] || tier);
+    }, 0);
+  }
+  return Number((day.drivers || {})[driver] || 0) * Number(state.config.priceDriver || 6);
 }
 
 function calculateDriverDebts() {
@@ -635,8 +657,7 @@ function renderDriverInputs() {
     <details class="driver-panel">
       <summary class="driver-panel-summary">${driver} <span class="driver-panel-hint">— clic para expandir</span></summary>
       <div class="driver-panel-body">
-        <label>Vendidos a 6 Bs <input class="driverSale6" data-driver="${driver}" type="number" min="0" value="0"></label>
-        <label>Vendidos a 7 Bs <input class="driverSale7" data-driver="${driver}" type="number" min="0" value="0"></label>
+        ${DRIVER_PRICE_TIERS.map((tier) => `<label>Vendidos a ${tier} Bs <input class="driverSale${tier}" data-driver="${driver}" type="number" min="0" value="0"></label>`).join("")}
         <label>Gasolina (litros) <input class="driverGas" data-driver="${driver}" type="number" min="0" step="0.01" value="0"></label>
         <label>Diésel (litros) <input class="driverDiesel" data-driver="${driver}" type="number" min="0" step="0.01" value="0"></label>
         <label>Efectivo recibido <input class="driverCash" data-driver="${driver}" type="number" min="0" step="0.01" value="0"></label>
@@ -959,18 +980,12 @@ function renderReports() {
     const total = totalsForDay(day);
     if (driver) {
       const qty = driverQtyForDay(day, driver);
-      const qty6 = Number((day.drivers6 || {})[driver] || 0);
-      const qty7 = Number((day.drivers7 || {})[driver] || 0);
-      const legacyQty = (day.drivers6 || day.drivers7) ? 0 : Number((day.drivers || {})[driver] || 0);
-      const driverInc = qty6 * Number(state.config.priceDriver6 || 6) + qty7 * Number(state.config.priceDriver7 || 7) + legacyQty * Number(state.config.priceDriver || 6);
+      const driverInc = driverIncomeForDay(day, driver);
       if (qty > 0) rows.push({ date: day.date, driver, qty, income: driverInc, total });
     } else {
       state.config.drivers.forEach((name) => {
         const qty = driverQtyForDay(day, name);
-        const qty6 = Number((day.drivers6 || {})[name] || 0);
-        const qty7 = Number((day.drivers7 || {})[name] || 0);
-        const legacyQty = (day.drivers6 || day.drivers7) ? 0 : Number((day.drivers || {})[name] || 0);
-        const driverInc = qty6 * Number(state.config.priceDriver6 || 6) + qty7 * Number(state.config.priceDriver7 || 7) + legacyQty * Number(state.config.priceDriver || 6);
+        const driverInc = driverIncomeForDay(day, name);
         if (qty > 0) rows.push({ date: day.date, driver: name, qty, income: driverInc, total });
       });
       const directQty = Number(day.direct6 || 0) + Number(day.direct7 || 0) + Number(day.direct8 || 0) + Number(day.direct10 || 0);
@@ -1283,13 +1298,13 @@ document.getElementById("dailyForm").addEventListener("submit", (event) => {
     alert("Elegí qué chofer fue responsable del bidón perdido.");
     return;
   }
-  const drivers6 = {};
-  document.querySelectorAll(".driverSale6").forEach((input) => {
-    drivers6[input.dataset.driver] = Number(input.value || 0);
-  });
-  const drivers7 = {};
-  document.querySelectorAll(".driverSale7").forEach((input) => {
-    drivers7[input.dataset.driver] = Number(input.value || 0);
+  const driversByTier = {};
+  DRIVER_PRICE_TIERS.forEach((tier) => {
+    const map = {};
+    document.querySelectorAll(`.driverSale${tier}`).forEach((input) => {
+      map[input.dataset.driver] = Number(input.value || 0);
+    });
+    driversByTier[tier] = map;
   });
   const cashByDriver = {};
   document.querySelectorAll(".driverCash").forEach((input) => {
@@ -1301,7 +1316,7 @@ document.getElementById("dailyForm").addEventListener("submit", (event) => {
   });
   const drivers = {};
   state.config.drivers.forEach((d) => {
-    drivers[d] = Number(drivers6[d] || 0) + Number(drivers7[d] || 0);
+    drivers[d] = DRIVER_PRICE_TIERS.reduce((sum, tier) => sum + Number(driversByTier[tier][d] || 0), 0);
   });
   const gasByDriver = {};
   document.querySelectorAll(".driverGas").forEach((input) => {
@@ -1344,8 +1359,12 @@ document.getElementById("dailyForm").addEventListener("submit", (event) => {
     dieselCost: 0,
     notes: document.getElementById("notes").value.trim(),
     drivers,
-    drivers6,
-    drivers7,
+    drivers5: driversByTier[5],
+    drivers6: driversByTier[6],
+    drivers7: driversByTier[7],
+    drivers8: driversByTier[8],
+    drivers9: driversByTier[9],
+    drivers10: driversByTier[10],
     cashByDriver,
     qrByDriver
   };
@@ -1490,7 +1509,7 @@ document.getElementById("gratisForm").addEventListener("submit", (event) => {
 
 document.getElementById("configForm").addEventListener("submit", (event) => {
   event.preventDefault();
-  const numeric = ["initialBottles", "initialCaps", "initialLabels", "initialSeals", "initialGasoline", "initialDiesel", "priceDriver", "priceDriver6", "priceDriver7", "priceDirect6", "priceDirect7", "priceDirect8", "priceDirect10", "gasolineSalePrice", "costCap", "costLabel", "costSeal", "gasolineLiterCost", "dieselLiterCost", "productionEmployee1Commission", "productionEmployee2Commission", "monthlyDepreciation", "lostCharge", "lowStock"];
+  const numeric = ["initialBottles", "initialCaps", "initialLabels", "initialSeals", "initialGasoline", "initialDiesel", "priceDriver", "priceDriver5", "priceDriver6", "priceDriver7", "priceDriver8", "priceDriver9", "priceDriver10", "priceDirect6", "priceDirect7", "priceDirect8", "priceDirect10", "gasolineSalePrice", "costCap", "costLabel", "costSeal", "gasolineLiterCost", "dieselLiterCost", "productionEmployee1Commission", "productionEmployee2Commission", "monthlyDepreciation", "lostCharge", "lowStock"];
   numeric.forEach((key) => {
     state.config[key] = Number(document.getElementById(key).value || 0);
   });
@@ -1556,11 +1575,10 @@ document.addEventListener("click", (event) => {
     });
     document.getElementById("brokenDriver").value = day.brokenDriver || "";
     document.getElementById("lostDriver").value = day.lostDriver || "";
-    document.querySelectorAll(".driverSale6").forEach((input) => {
-      input.value = (day.drivers6 || {})[input.dataset.driver] || 0;
-    });
-    document.querySelectorAll(".driverSale7").forEach((input) => {
-      input.value = (day.drivers7 || {})[input.dataset.driver] || 0;
+    DRIVER_PRICE_TIERS.forEach((tier) => {
+      document.querySelectorAll(`.driverSale${tier}`).forEach((input) => {
+        input.value = (day[`drivers${tier}`] || {})[input.dataset.driver] || 0;
+      });
     });
     document.querySelectorAll(".driverGas").forEach((input) => {
       input.value = (day.gasByDriver || {})[input.dataset.driver] || 0;
