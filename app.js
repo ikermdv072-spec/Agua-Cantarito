@@ -349,11 +349,13 @@ function totalsForDay(day) {
   const direct7 = Number(day.direct7 || 0);
   const direct8 = Number(day.direct8 || 0);
   const direct10 = Number(day.direct10 || 0);
+  const company75 = Number(day.company75 || 0);
   const physicalBottlesSold = Number(day.physicalBottlesSold || 0);
   const physicalBottleUnitPrice = Number(day.physicalBottleUnitPrice || 0);
   const gasolineSoldLiters = Number(day.gasolineSoldLiters || 0);
 
-  const sold = driverQty + direct6 + direct7 + direct8 + direct10;
+  const commissionableSold = driverQty + direct6 + direct7 + direct8 + direct10;
+  const sold = commissionableSold + company75;
 
   const directIncome = direct6 * Number(state.config.priceDirect6 || 6) +
                        direct7 * state.config.priceDirect7 +
@@ -361,14 +363,14 @@ function totalsForDay(day) {
                        direct10 * Number(state.config.priceDirect10 || 10);
   const physicalBottleIncome = physicalBottlesSold * physicalBottleUnitPrice;
   const gasolineSaleIncome = gasolineSoldLiters * Number(state.config.gasolineSalePrice || 7);
-  const income = driverIncome + directIncome + physicalBottleIncome + gasolineSaleIncome;
+  const income = driverIncome + directIncome + company75 * 7.5 + physicalBottleIncome + gasolineSaleIncome;
 
   const supplyCost =
     Number(day.capsUsed || 0) * state.config.costCap +
     Number(day.labelsUsed || 0) * state.config.costLabel +
     Number(day.sealsUsed || 0) * state.config.costSeal;
-  const productionEmployee1CommissionCost = sold * Number(state.config.productionEmployee1Commission || 0);
-  const productionEmployee2CommissionCost = sold * Number(state.config.productionEmployee2Commission || 0);
+  const productionEmployee1CommissionCost = commissionableSold * Number(state.config.productionEmployee1Commission || 0);
+  const productionEmployee2CommissionCost = commissionableSold * Number(state.config.productionEmployee2Commission || 0);
   const productionCommissionCost = productionEmployee1CommissionCost + productionEmployee2CommissionCost;
   const fuelCost = gasCostForDay(day) + dieselCostForDay(day);
   const variableCost = supplyCost + productionCommissionCost + fuelCost;
@@ -380,7 +382,7 @@ function totalsForDay(day) {
   const totalCash = Number(day.cash || 0) + cashByDriverTotal;
   const totalQr = Number(day.qr || 0) + qrByDriverTotal;
 
-  return { driverQty, direct6, direct7, direct8, direct10, physicalBottlesSold, physicalBottleUnitPrice, gasolineSoldLiters, gasolineSaleIncome, sold, income, physicalBottleIncome, supplyCost, productionEmployee1CommissionCost, productionEmployee2CommissionCost, productionCommissionCost, fuelCost, variableCost, lossCharge, leftover, totalCash, totalQr };
+  return { driverQty, direct6, direct7, direct8, direct10, company75, physicalBottlesSold, physicalBottleUnitPrice, gasolineSoldLiters, gasolineSaleIncome, sold, income, physicalBottleIncome, supplyCost, productionEmployee1CommissionCost, productionEmployee2CommissionCost, productionCommissionCost, fuelCost, variableCost, lossCharge, leftover, totalCash, totalQr };
 }
 
 function gasForDay(day) {
@@ -993,6 +995,9 @@ function renderReports() {
                         Number(day.direct7 || 0) * state.config.priceDirect7 +
                         Number(day.direct8 || 0) * state.config.priceDirect8 +
                         Number(day.direct10 || 0) * Number(state.config.priceDirect10 || 10);
+      if (Number(day.company75 || 0) > 0) {
+        rows.push({ date: day.date, driver: "Venta empresa (sin comisión)", qty: Number(day.company75), income: Number(day.company75) * 7.5, total });
+      }
       if (directQty > 0) {
         rows.push({ date: day.date, driver: "Venta directa", qty: directQty, income: directInc, total });
       }
@@ -1342,6 +1347,7 @@ document.getElementById("dailyForm").addEventListener("submit", (event) => {
     direct7: Number(document.getElementById("direct7").value || 0),
     direct8: Number(document.getElementById("direct8").value || 0),
     direct10: Number(document.getElementById("direct10").value || 0),
+    company75: Number(document.getElementById("company75").value || 0),
     physicalBottlesSold: Number(document.getElementById("physicalBottlesSold").value || 0),
     physicalBottleUnitPrice: Number(document.getElementById("physicalBottleUnitPrice").value || 0),
     gasolineSoldLiters: Number(document.getElementById("gasolineSoldLiters").value || 0),
@@ -1423,18 +1429,32 @@ document.getElementById("purchaseForm").addEventListener("submit", (event) => {
   renderAll();
 });
 
+function updateDailySalaryFields() {
+  const salary = document.getElementById("dailyExpenseCategory").value === "Sueldo diario del personal";
+  document.getElementById("dailySalaryEmployeeLabel").hidden = !salary;
+  document.getElementById("dailySalaryEmployee").required = salary;
+}
+document.getElementById("dailyExpenseCategory").addEventListener("change", updateDailySalaryFields);
+
 function saveExpenseFromForm(form, type) {
   const prefix = type === "Mensual" ? "monthlyExpense" : "dailyExpense";
+  const salary = type === "Diario" && document.getElementById(`${prefix}Category`).value === "Sueldo diario del personal";
+  const employee = document.getElementById("dailySalaryEmployee").value.trim();
+  if (salary && (!employee || Number(document.getElementById(`${prefix}Amount`).value) <= 0)) {
+    alert("Ingresá el nombre del personal y un sueldo mayor a cero.");
+    return;
+  }
   state.expenses.push({
     id: uid(),
     date: document.getElementById(`${prefix}Date`).value,
     category: document.getElementById(`${prefix}Category`).value,
     amount: Number(document.getElementById(`${prefix}Amount`).value || 0),
     type,
-    note: document.getElementById(`${prefix}Note`).value.trim()
+    note: (salary ? `Personal: ${employee}. ` : "") + document.getElementById(`${prefix}Note`).value.trim()
   });
   saveState();
   form.reset();
+  updateDailySalaryFields();
   renderAll();
 }
 
@@ -1570,7 +1590,7 @@ document.addEventListener("click", (event) => {
     if (!day) return;
     if (isOlderThan4Days(day.date) && !confirmProtected()) return;
     document.getElementById("dailyId").value = day.id;
-    ["date", "produced", "capsDelivered", "labelsDelivered", "sealsDelivered", "capsUsed", "labelsUsed", "sealsUsed", "direct6", "direct7", "direct8", "direct10", "physicalBottlesSold", "physicalBottleUnitPrice", "gasolineSoldLiters", "cash", "qr", "broken", "lost", "notes"].forEach((id) => {
+    ["date", "produced", "capsDelivered", "labelsDelivered", "sealsDelivered", "capsUsed", "labelsUsed", "sealsUsed", "direct6", "direct7", "direct8", "direct10", "company75", "physicalBottlesSold", "physicalBottleUnitPrice", "gasolineSoldLiters", "cash", "qr", "broken", "lost", "notes"].forEach((id) => {
       document.getElementById(id).value = day[id] ?? "";
     });
     document.getElementById("brokenDriver").value = day.brokenDriver || "";

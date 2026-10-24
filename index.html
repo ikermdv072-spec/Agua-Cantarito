@@ -129,6 +129,7 @@
         <label>Venta directa 6 Bs <input id="direct6" type="number" min="0" value="0"></label>
         <label>Venta directa 7 Bs <input id="direct7" type="number" min="0" value="0"></label>
         <label>Venta directa 8 Bs <input id="direct8" type="number" min="0" value="0"></label>
+        <label>Venta empresa 7,50 Bs (sin comisión) <input id="company75" type="number" min="0" step="1" value="0"></label>
         <label>Venta directa 10 Bs <input id="direct10" type="number" min="0" value="0"></label>
         <label>Gasolina vendida (litros) <input id="gasolineSoldLiters" type="number" min="0" step="0.01" value="0"></label>
         <label>Bidones físicos vendidos <input id="physicalBottlesSold" type="number" min="0" value="0"></label>
@@ -241,6 +242,7 @@
               <option>Limpieza equipo</option>
               <option>Insumos producción</option>
               <option>Viáticos choferes</option>
+              <option>Sueldo diario del personal</option>
               <option>Comida personal</option>
               <option>Teléfono / comunicación</option>
               <option>Publicidad</option>
@@ -249,6 +251,7 @@
             </select>
           </label>
           <label>Monto <input id="dailyExpenseAmount" type="number" min="0" step="0.01" value="0"></label>
+          <label id="dailySalaryEmployeeLabel" hidden>Nombre del personal <input id="dailySalaryEmployee" type="text" maxlength="100"></label>
           <label>Detalle <input id="dailyExpenseNote" type="text" placeholder="Opcional"></label>
           <button class="wide" type="submit">Guardar gasto diario</button>
         </form>
